@@ -1,0 +1,11 @@
+# OS / editor cruft
+Thumbs.db
+.DS_Store
+*.swp
+*~
+
+# Local symlink backups created by link-to-profile.ps1 (never belong in the repo)
+_pre-symlink-backup-*/
+
+# Personal symlink script with a hardcoded profile path (use dev/link-to-profile.ps1 instead)
+/link-to-profile.ps1

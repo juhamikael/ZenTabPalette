@@ -1,0 +1,695 @@
+/* Tab Filter dialog styles. Lives next to tab-filter.uc.js and is loaded by it
+   via <link href="chrome://userscripts/content/tab-filter.css">. */
+
+/* ============================================================
+   THEME — change these variables to recolour the dialog.
+   --uc-tf-accent      : the keyboard-highlighted (active) row
+   --uc-tf-primary     : primary buttons / regex-on / focus ring
+   ============================================================ */
+.uc-tf-overlay,
+.uc-tf-ctxmenu {
+  --uc-tf-accent: #1fc8b4;                              /* turquoise: active row */
+  --uc-tf-primary: var(--zen-primary-color, #7a7afc);  /* Zen accent (violet) */
+}
+
+/* Toolbar button icon */
+#uc-tab-filter-button {
+  list-style-image: url("chrome://global/skin/icons/search-glass.svg");
+  -moz-context-properties: fill;
+  fill: currentColor;
+}
+
+/* Shared field look (inputs / selects / secondary buttons) */
+.uc-tf-field {
+  color: inherit;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+}
+
+/* Overlay + dialog */
+.uc-tf-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.uc-tf-dialog {
+  position: relative;
+  width: 560px;
+  max-width: 92vw;
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 14px;
+  font-size: 13px;
+  color: var(--toolbar-color, inherit);
+  background: var(--zen-dialog-background, var(--toolbar-bgcolor, #2b2a33));
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+
+/* Title */
+.uc-tf-title {
+  font-weight: 600;
+  font-size: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.uc-tf-title-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.uc-tf-close,
+.uc-tf-gear,
+.uc-tf-help {
+  cursor: pointer;
+  opacity: 0.7;
+  padding: 2px 6px;
+}
+.uc-tf-gear:hover,
+.uc-tf-close:hover,
+.uc-tf-help:hover {
+  opacity: 1;
+}
+.uc-tf-help {
+  font-weight: 700;
+}
+
+/* Panels: the main tab view and the settings view share this column layout */
+.uc-tf-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+/* A class with `display` beats the UA `[hidden] { display:none }`, so restore it
+   explicitly — otherwise both panels render and overflow the dialog. */
+.uc-tf-panel[hidden] {
+  display: none;
+}
+
+/* Settings view */
+.uc-tf-settings {
+  gap: 12px;
+}
+.uc-tf-settings-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+.uc-tf-setting {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.uc-tf-setting--text {
+  cursor: default;
+}
+.uc-tf-setting--text input {
+  flex: 0 0 160px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+.uc-tf-shortcut-rec {
+  cursor: pointer; /* click to capture a key combo */
+  text-align: center;
+}
+.uc-tf-shortcut-rec:focus {
+  outline: 2px solid var(--uc-tf-accent);
+  outline-offset: 1px;
+}
+.uc-tf-hint {
+  font-size: 11px;
+  opacity: 0.55;
+}
+.uc-tf-warn {
+  font-size: 12px;
+  color: #e6b450;
+  padding: 2px 0;
+}
+
+/* Cross-workspace scope row (own row, shown only when the setting is on) */
+.uc-tf-wsrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.uc-tf-wsrow[hidden] {
+  display: none;
+}
+.uc-tf-wslabel {
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+.uc-tf-wspicker {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+/* Recent-searches (history) dropdown row */
+.uc-tf-histrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.uc-tf-histrow[hidden] {
+  display: none;
+}
+.uc-tf-histlabel {
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+.uc-tf-histpicker {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+/* Settings: history size number input + manage button on the same row */
+.uc-tf-histsize {
+  flex: 0 0 64px !important; /* override the 160px text-setting width */
+  text-align: center;
+}
+.uc-tf-managehist {
+  flex-shrink: 0;
+}
+
+/* History management view */
+.uc-tf-history-panel {
+  gap: 12px;
+}
+.uc-tf-history-list {
+  flex: 1;
+  min-height: 120px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+  border-radius: 10px;
+  padding: 6px;
+}
+.uc-tf-history-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 6px;
+}
+.uc-tf-history-row:hover {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+.uc-tf-history-q {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  font-size: 13px;
+}
+.uc-tf-history-x {
+  flex-shrink: 0;
+  cursor: pointer;
+  opacity: 0.55;
+  font-size: 11px;
+  padding: 2px 6px;
+}
+.uc-tf-history-x:hover {
+  opacity: 1;
+}
+
+/* Theme editor view */
+.uc-tf-theme-panel {
+  gap: 12px;
+}
+.uc-tf-theme-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-right: 4px;
+}
+.uc-tf-theme-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.uc-tf-theme-label {
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.8;
+}
+.uc-tf-swatches {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.uc-tf-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid color-mix(in srgb, currentColor 25%, transparent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+.uc-tf-swatch:hover {
+  transform: scale(1.12);
+}
+.uc-tf-swatch:focus-visible {
+  outline: 2px solid var(--uc-tf-primary);
+  outline-offset: 2px;
+}
+.uc-tf-theme-pickrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.uc-tf-colorinput {
+  width: 44px;
+  height: 30px;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  background: transparent;
+  cursor: pointer;
+}
+.uc-tf-theme-hex {
+  font-family: monospace;
+  font-size: 12px;
+  opacity: 0.8;
+}
+.uc-tf-theme-prevwrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+}
+.uc-tf-theme-prevlabel {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.55;
+}
+/* Two-class selector so it beats `.uc-tf-row` (which is defined later in this file
+   and would otherwise win the position:absolute, making the preview bleed out). */
+.uc-tf-row.uc-tf-theme-prevrow {
+  position: static;
+  left: auto;
+  right: auto;
+  height: 32px;
+  width: 100%;
+}
+.uc-tf-theme-prevbtns {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Search row */
+.uc-tf-searchrow {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+.uc-tf-rebtn {
+  padding: 0 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: monospace;
+}
+.uc-tf-rebtn.uc-tf-rebtn--on {
+  background: var(--uc-tf-primary);
+  color: white;
+  border-color: transparent;
+}
+.uc-tf-inputwrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+}
+.uc-tf-search {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 7px 28px 7px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+.uc-tf-search.uc-tf-search--error {
+  border-color: #ff8080;
+}
+.uc-tf-clearx {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  opacity: 0.6;
+  font-size: 12px;
+}
+.uc-tf-savebtn {
+  padding: 0 10px;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* Saved pattern chips */
+.uc-tf-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.uc-tf-saved-label {
+  font-size: 11px;
+  opacity: 0.55;
+}
+.uc-tf-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 6px 3px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  cursor: pointer;
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+.uc-tf-chip-x {
+  opacity: 0.55;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+/* Selection row */
+.uc-tf-selrow {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap; /* if it ever overflows, wrap whole items rather than mid-text */
+  font-size: 12px;
+  opacity: 0.85;
+}
+.uc-tf-selrow > span,
+.uc-tf-link {
+  white-space: nowrap; /* keep "Selected X", "Select all", "Clear all" on one line each */
+}
+.uc-tf-link {
+  cursor: pointer;
+  text-decoration: underline;
+}
+.uc-tf-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+.uc-tf-toggle--right {
+  margin-left: auto;
+}
+
+/* List + rows (virtualized) */
+.uc-tf-list {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 120px;
+  position: relative; /* scroll container for the absolutely-positioned rows */
+  border: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+  border-radius: 10px;
+  padding: 6px;
+}
+.uc-tf-vsizer {
+  position: relative;
+  width: 100%; /* its height is set in JS to total rows * ROW_STEP */
+}
+.uc-tf-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 36px; /* visible height; must be <= JS ROW_STEP (40) so rows don't overlap */
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: pointer; /* whole row toggles selection */
+  user-select: none; /* avoid text selection when click-toggling */
+}
+.uc-tf-row:hover:not(.uc-tf-row--active) {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+.uc-tf-row.uc-tf-row--active {
+  background: color-mix(in srgb, var(--uc-tf-accent) 32%, transparent);
+  box-shadow: inset 2px 0 0 var(--uc-tf-accent);
+}
+.uc-tf-cb {
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.uc-tf-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.uc-tf-fav {
+  flex-shrink: 0;
+  border-radius: 3px;
+}
+.uc-tf-col {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.uc-tf-title-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.uc-tf-url {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 10px;
+  opacity: 0.55;
+}
+.uc-tf-badge {
+  font-size: 10px;
+  opacity: 0.6;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.uc-tf-wsbadge {
+  font-size: 10px;
+  opacity: 0.7;
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--uc-tf-primary) 18%, transparent);
+}
+.uc-tf-empty {
+  opacity: 0.6;
+  padding: 10px;
+  text-align: center;
+}
+.uc-tf-error {
+  padding: 10px;
+  text-align: center;
+  color: #ff8080;
+}
+
+/* Destination row */
+.uc-tf-destrow {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.uc-tf-select {
+  flex: 1;
+  min-width: 160px;
+  padding: 6px 8px;
+  border-radius: 8px;
+}
+.uc-tf-newname {
+  flex: 1;
+  min-width: 120px;
+  padding: 6px 8px;
+  border-radius: 8px;
+}
+
+/* Status + buttons */
+.uc-tf-status {
+  font-size: 12px;
+  min-height: 16px;
+  opacity: 0.85;
+}
+.uc-tf-btns {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.uc-tf-btn {
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  color: inherit;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+}
+.uc-tf-btn.uc-tf-btn--primary {
+  background: var(--uc-tf-primary);
+  color: white;
+  border: none;
+}
+
+/* Visible keyboard focus for icon-only controls and chips (mouse focus stays subtle) */
+.uc-tf-close:focus-visible,
+.uc-tf-gear:focus-visible,
+.uc-tf-help:focus-visible,
+.uc-tf-clearx:focus-visible,
+.uc-tf-chip:focus-visible {
+  outline: 2px solid var(--uc-tf-primary);
+  outline-offset: 1px;
+  border-radius: 6px;
+}
+
+/* Help view */
+.uc-tf-help-panel {
+  gap: 12px;
+}
+.uc-tf-help-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-right: 4px;
+}
+.uc-tf-help-h {
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.65;
+  margin-top: 10px;
+}
+.uc-tf-help-h:first-child {
+  margin-top: 0;
+}
+.uc-tf-help-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.uc-tf-kbd {
+  flex: 0 0 130px;
+  font-family: monospace;
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  white-space: nowrap;
+  text-align: center;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+}
+.uc-tf-help-desc {
+  flex: 1;
+  font-size: 12px;
+  opacity: 0.85;
+}
+.uc-tf-help-note {
+  font-size: 12px;
+  opacity: 0.7;
+  line-height: 1.4;
+}
+
+/* Per-row right-click context menu */
+.uc-tf-ctxmenu {
+  position: fixed;
+  z-index: 2147483647;
+  min-width: 180px;
+  padding: 4px;
+  border-radius: 8px;
+  color: var(--toolbar-color, inherit);
+  background: var(--zen-dialog-background, var(--toolbar-bgcolor, #2b2a33));
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  font-size: 13px;
+}
+.uc-tf-ctxitem {
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.uc-tf-ctxitem:hover {
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+.uc-tf-ctxsep {
+  height: 1px;
+  margin: 4px 6px;
+  background: color-mix(in srgb, currentColor 18%, transparent);
+}
+
+/* In-dialog confirmation */
+.uc-tf-confirm {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+}
+.uc-tf-confirm-box {
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 12px;
+  color: inherit;
+  background: var(--zen-dialog-background, var(--toolbar-bgcolor, #2b2a33));
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+}
+.uc-tf-confirm-msg {
+  font-size: 13px;
+}
+.uc-tf-confirm-row {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
