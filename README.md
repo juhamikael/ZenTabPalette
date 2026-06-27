@@ -1,7 +1,7 @@
 # Tab Filter for Zen Browser
 
 A keyboard-friendly search & organize dialog for [Zen Browser](https://zen-browser.app)
-tabs. Built for heavy tab users (hundreds–thousands of tabs across workspaces) — search
+tabs. Built for heavy tab users (hundreds-thousands of tabs across workspaces) - search
 with a rich query language, then bulk-move, bookmark, or close the matches. A userChrome.js
 mod (loaded via fx-autoconfig); two files, no build step.
 
@@ -24,7 +24,7 @@ Open it via the **toolbar button**, **Ctrl+Shift+F**, or **right-clicking a tab*
 ### Results list
 | Feature | Notes |
 |---------|-------|
-| Virtualized | Only visible rows are mounted — smooth with thousands of tabs |
+| Virtualized | Only visible rows are mounted - smooth with thousands of tabs |
 | Row info | Favicon · title · URL · `📁 folder` · `🪟 workspace` (workspace shown when searching all) |
 | Persistent selection | Selections survive changing the search within a session |
 | Keyboard nav | `↑`/`↓` move · `Space` toggles the highlighted row · `Enter` jumps · `Ctrl+Enter` toggles · `Delete` closes the selection (or the highlighted tab) |
@@ -61,18 +61,18 @@ Requires **fx-autoconfig** ([MrOtherGuy/fx-autoconfig](https://github.com/MrOthe
 which lets Zen run custom JS.
 
 1. **fx-autoconfig** (once). From fx-autoconfig's `program/` folder, copy **`config.js`
-   and the whole `defaults/` folder** into the Zen **binary/install directory** — the
+   and the whole `defaults/` folder** into the Zen **binary/install directory** - the
    folder that contains `zen.exe` (Windows: e.g. `C:\Program Files\Zen Browser\`; Linux:
    next to the `zen` binary; macOS: `…/Zen.app/Contents/Resources/`). After this you should
    have `…/Zen Browser/config.js` and `…/Zen Browser/defaults/pref/config-prefs.js`.
-   - This is a **system** location (needs admin — on Windows `gsudo` works) and is **not
-     part of this mod** — it's fx-autoconfig's loader. Zen updates can overwrite it, so
+   - This is a **system** location (needs admin - on Windows `gsudo` works) and is **not
+     part of this mod** - it's fx-autoconfig's loader. Zen updates can overwrite it, so
      re-copy if the mod stops loading after an update.
    - Then copy fx-autoconfig's `profile/chrome/utils/` folder into your **profile**
      `chrome/` folder.
 2. **This mod:** copy `tab-filter.uc.js` and `tab-filter.css` into your profile
    `chrome/JS/` folder (find the profile via `about:support` → "Open Profile Folder").
-3. Restart Zen via `about:support` → **Clear startup cache…** (a plain restart isn't enough —
+3. Restart Zen via `about:support` → **Clear startup cache…** (a plain restart isn't enough -
    fx-autoconfig caches scripts).
 4. Open **Customize Toolbar** and drag the **Filter Tabs** button where you want it, or
    just press **Ctrl+Shift+F**.
@@ -93,17 +93,17 @@ Two ways to recolour the dialog:
   colour picker for the **accent** (highlighted row) and **primary** (buttons / regex-on /
   focus) colours, with a live preview. Saved to `extensions.uctabfilter.themeAccent` /
   `themePrimary`; **Reset to defaults** restores them.
-  - This is our own editor — Zen's "Edit Theme" (the gradient generator) is bound to
+  - This is our own editor - Zen's "Edit Theme" (the gradient generator) is bound to
     workspace backgrounds and can't be reused for an arbitrary panel, so we built an
     equivalent that drives the same two CSS variables.
-- **CSS** (defaults): the two variables at the top of `tab-filter.css` — `--uc-tf-accent`
+- **CSS** (defaults): the two variables at the top of `tab-filter.css` - `--uc-tf-accent`
   (turquoise by default) and `--uc-tf-primary` (Zen's accent by default). The in-app editor
   overrides these at runtime.
 
 ## Development
 
 For live development, symlink the repo's files into your Zen profile instead of copying
-them — then edits here are picked up by Zen directly:
+them - then edits here are picked up by Zen directly:
 
 ```powershell
 # Auto-detect your default Zen profile and symlink the files in:
@@ -120,11 +120,11 @@ cache…", or a full restart). See `CLAUDE.md` for architecture and the edit/tes
 
 ### TypeScript
 
-There is **no native TypeScript support** — fx-autoconfig only loads `.uc.js`, `.uc.mjs`,
+There is **no native TypeScript support** - fx-autoconfig only loads `.uc.js`, `.uc.mjs`,
 and `.sys.mjs` (and `.uc.css`). This project is plain JS with `// @ts-check`-friendly
 JSDoc, so editors type-check it with no build step. fx-autoconfig also ships `.d.ts`
 type definitions (its `types/` dir) for its `UC_API`. If you want full TS, you'd write
-`.ts` and compile it to `.uc.js` yourself (your own `tsc` step) — fx-autoconfig will not
+`.ts` and compile it to `.uc.js` yourself (your own `tsc` step) - fx-autoconfig will not
 compile it for you. We chose plain JS + `@ts-check` to keep the "two files, no build"
 simplicity.
 
@@ -140,7 +140,7 @@ simplicity.
 ## Notes / limitations
 
 - Rides on a few Zen DOM-structure points (`zen-folder` elements, the `zen-workspace-id`
-  attribute) that Zen itself uses — stable in practice, but a large Zen/Firefox version
+  attribute) that Zen itself uses - stable in practice, but a large Zen/Firefox version
   jump could require a small fix.
 - The regex guard reduces but does not eliminate catastrophic backtracking (JS has no
   in-thread regex timeout).
