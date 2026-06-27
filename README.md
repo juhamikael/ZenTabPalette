@@ -1,5 +1,8 @@
 # Tab Filter for Zen Browser
 
+<img width="1917" height="1025" alt="90jYHA70or" src="https://github.com/user-attachments/assets/5600367c-2ce1-42b2-a985-1b4047df0c9c" />
+
+
 A keyboard-friendly search & organize dialog for [Zen Browser](https://zen-browser.app)
 tabs. Built for heavy tab users (hundreds-thousands of tabs across workspaces) - search
 with a rich query language, then bulk-move, bookmark, or close the matches. A userChrome.js
