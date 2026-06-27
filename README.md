@@ -72,8 +72,10 @@ which lets Zen run custom JS.
      `chrome/` folder.
 2. **This mod:** copy `tab-filter.uc.js` and `tab-filter.css` into your profile
    `chrome/JS/` folder (find the profile via `about:support` → "Open Profile Folder").
-3. Restart Zen via `about:support` → **Clear startup cache…** (a plain restart isn't enough -
-   fx-autoconfig caches scripts).
+3. Restart Zen (`about:profiles` → **Restart normally…**, or just fully quit and reopen).
+   fx-autoconfig reads scripts fresh on each start. Only if a change doesn't show up — or
+   after adding/renaming a file or changing the loader — clear the startup cache via
+   `about:support` → **Clear startup cache…**.
 4. Open **Customize Toolbar** and drag the **Filter Tabs** button where you want it, or
    just press **Ctrl+Shift+F**.
 
@@ -115,8 +117,9 @@ them - then edits here are picked up by Zen directly:
 ```
 
 Windows needs **Developer Mode ON** (Settings → System → For developers) or an elevated
-shell to create symlinks. After editing, reload Zen (`about:support` → "Clear startup
-cache…", or a full restart). See `CLAUDE.md` for architecture and the edit/test protocol.
+shell to create symlinks. After editing, restart Zen (`about:profiles` → "Restart
+normally…", or fully quit and reopen) to pick up the changes; only clear the startup cache
+(`about:support`) if a change is stubborn. See `CLAUDE.md` for architecture and the edit/test protocol.
 
 ### TypeScript
 

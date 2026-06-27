@@ -76,8 +76,10 @@ chrome JS, **not React**; there is no reactive state.
    `grep -nE "[A-Za-z]createEl\(|Witcreate" tab-filter.uc.js` (should be empty). Avoid
    `replace_all` on short substrings that can appear inside larger tokens, and prefer
    non-emoji anchors when editing (emoji can break exact string matching).
-3. Reload the mod: `about:support` → "Clear startup cache…" (a plain restart is not
-   enough — fx-autoconfig caches scripts).
+3. Reload the mod by restarting Zen (`about:profiles` → "Restart normally…", or fully quit
+   and reopen) — fx-autoconfig reads scripts fresh on each start. Only clear the startup
+   cache (`about:support` → "Clear startup cache…") if a change is stubborn, or after
+   adding/renaming a file or changing the loader/manifest.
 4. Smoke-test in the browser: open Browser Console (`Ctrl+Shift+J`), confirm no
    `[tab-filter]` / `TypeError`; open the dialog via the toolbar button, `Ctrl+Shift+F`,
    and the tab right-click; exercise search/regex/duplicates/folders, move/close/
