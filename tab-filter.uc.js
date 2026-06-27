@@ -739,11 +739,13 @@
       this.#ui.searchInput.focus();
     }
 
-    /** Tear down: remove the document key handler (no leak), the overlay, and restore focus. */
+    /** Tear down: stop any capture, cancel pending frames, remove handlers/overlay, restore focus. */
     close = () => {
+      this.#stopRecordingShortcut();            // else gUCTabFilterRecording can stay true → shortcut dies
+      if (this.#scrollRaf) { cancelAnimationFrame(this.#scrollRaf); this.#scrollRaf = 0; }
       this.#closeRowMenu();
       document.removeEventListener("keydown", this.#onDocumentKey);
-      this.#ui.overlay?.remove();
+      this.#ui.overlay?.remove();               // isConnected → false; guards stale debounced #rebuildList
       if (FilterDialog.#current === this) FilterDialog.#current = null;
       try { this.#previousFocus?.focus?.(); } catch (e) { debug(e); }
     };
@@ -1526,6 +1528,7 @@
      */
     #rebuildList() {
       const ui = this.#ui;
+      if (!ui.overlay?.isConnected) return; // dialog closed before a debounced rebuild fired
       const query = ui.searchInput.value.trim();
       const scope = this.#workspaceScope;
       this.#closeRowMenu();
