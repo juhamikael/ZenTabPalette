@@ -76,8 +76,8 @@ which lets Zen run custom JS.
 2. **This mod:** copy `tab-filter.uc.js` and `tab-filter.css` into your profile
    `chrome/JS/` folder (find the profile via `about:support` → "Open Profile Folder").
 3. Restart Zen (`about:profiles` → **Restart normally…**, or just fully quit and reopen).
-   fx-autoconfig reads scripts fresh on each start. Only if a change doesn't show up — or
-   after adding/renaming a file or changing the loader — clear the startup cache via
+   fx-autoconfig reads scripts fresh on each start. Only if a change doesn't show up, or
+   after adding/renaming a file or changing the loader, clear the startup cache via
    `about:support` → **Clear startup cache…**.
 4. Open **Customize Toolbar** and drag the **Filter Tabs** button where you want it, or
    just press **Ctrl+Shift+F**.
@@ -146,4 +146,18 @@ See [`TODO.md`](TODO.md) for the planned features and known issues.
 - The regex guard reduces but does not eliminate catastrophic backtracking (JS has no
   in-thread regex timeout).
 
-See `CLAUDE.md` (next to this file) for architecture and contribution/testing notes.
+## Contributing
+
+Contributions are welcome - fork it, hack on it, send a pull request. A few pointers if
+it helps:
+
+- [`TODO.md`](TODO.md) lists planned features and known issues if you want ideas.
+- [`CLAUDE.md`](CLAUDE.md) has the architecture and the edit/test protocol. No build step:
+  `node --check tab-filter.uc.js` plus a quick in-browser smoke test.
+- Keeping styling in CSS, verifying Zen/Firefox APIs against the browser source, and
+  matching the existing style all help, but do whatever works.
+
+## License
+
+[MIT](LICENSE) - do what you want with it, but keep the copyright notice and don't pass it
+off as your own.
