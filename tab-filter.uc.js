@@ -93,7 +93,7 @@
   /** Debug logging is off by default; flip extensions.uctabfilter.debug to see swallowed errors. */
   const DEBUG = (() => { try { return Services.prefs.getBoolPref("extensions.uctabfilter.debug", false); } catch (e) { debug(e); return false; } })();
   /** Log only when DEBUG is on — used in catch blocks so failures aren't silently swallowed. */
-  function debug(...args) { if (DEBUG) console.debug("[tab-filter]", ...args); }
+  function debug(...args) { if (DEBUG) console.debug("[ZenTabPalette]", ...args); }
 
   /**
    * A Zen folder descriptor used by the destination picker.
@@ -423,10 +423,11 @@
       } catch (e) { debug(e); return []; }
     }
 
-    /** @returns {WorkspaceInfo} normalize a Zen workspace object (name prefixed with its emoji icon). */
+    /** @returns {WorkspaceInfo} normalize a Zen workspace object (name + its emoji icon, both combined and separate). */
     static #workspaceInfo(workspace) {
-      const iconPrefix = workspace.icon && !String(workspace.icon).endsWith(".svg") ? workspace.icon + " " : "";
-      return { uuid: workspace.uuid, name: iconPrefix + (workspace.name || "Workspace") };
+      const emoji = workspace.icon && !String(workspace.icon).endsWith(".svg") ? workspace.icon : "";
+      const rawName = workspace.name || "Workspace";
+      return { uuid: workspace.uuid, name: (emoji ? emoji + " " : "") + rawName, rawName, emoji };
     }
 
     /**
@@ -468,9 +469,22 @@
     }
 
     // ---------- Actions ----------
-    /** Create a new Zen folder containing `tabs` (folders auto-pin their tabs). */
-    static createFolder(tabs, name) {
-      window.gZenFolders.createFolder(tabs, { label: name || "New Folder", renameFolder: false });
+    /**
+     * Create a new Zen folder containing `tabs` (folders auto-pin their tabs).
+     * If `workspaceUuid` names another workspace, the tabs are moved there first and
+     * the folder is created in it (Zen's createFolder honours `workspaceId`), so you
+     * can drop a selection straight into a folder in a different workspace without switching to it.
+     * @param {MozTabbrowserTab[]} tabs @param {string} name @param {?string} [workspaceUuid]
+     */
+    static createFolder(tabs, name, workspaceUuid) {
+      const activeId = this.activeWorkspaceId();
+      if (workspaceUuid && activeId && workspaceUuid !== activeId) {
+        this.moveToWorkspace(tabs, workspaceUuid); // synchronous (see moveToFolder note)
+      }
+      window.gZenFolders.createFolder(tabs, {
+        label: name || "New Folder", renameFolder: false,
+        ...(workspaceUuid ? { workspaceId: workspaceUuid } : {}),
+      });
     }
     /** Create a new tab group containing `tabs`. */
     static createGroup(tabs, name, color) {
@@ -654,6 +668,223 @@
     static get themeAccent() { return this.#str("themeAccent", THEME_DEFAULT_ACCENT); }
     /** The open-dialog shortcut, e.g. "Ctrl+Shift+F". */
     static get shortcut() { return this.#str("shortcut", "Ctrl+Shift+F"); }
+    /** Animation intensity 0–100 (% of the full motion; 0 = no animations). */
+    static get motionScale() { return Math.min(100, Math.max(0, this.#int("motionScale", 100))); }
+  }
+
+  // =====================================================================
+  //  Dropdown  (custom <select> replacement)
+  // =====================================================================
+  /**
+   * A custom dropdown: a trigger button + a styled popup list with optional per-item
+   * icons (an `icon` SVG name from icons/, or an `emoji` string) and group headers.
+   * Keyboard accessible (Up/Down/Enter/Esc). Replaces native <select> so the open
+   * list can be styled and carry SVG icons.
+   * @typedef {Object} DropdownItem
+   * @property {string} [header]  a non-selectable group label (renders a divider)
+   * @property {*} [value]        the value for a selectable option
+   * @property {string} [label]   option text
+   * @property {string} [icon]    icons/<icon>.svg name (themed via CSS)
+   * @property {string} [emoji]   emoji shown instead of an SVG icon
+   * @property {number} [depth]   indent level (for nested folders)
+   * @property {*} [action]       arbitrary payload read back by the caller
+   */
+  class Dropdown {
+    #items = [];
+    #selected = null;
+    #onSelect;
+    #onConfirm;
+    #placeholder;
+    #activeIndex = -1;
+    #editing = false;
+    #onDocDown;
+
+    constructor({ ariaLabel = "", className = "", placeholder = "", onSelect = () => {}, onConfirm = () => {} }) {
+      this.#onSelect = onSelect;
+      this.#onConfirm = onConfirm;
+      this.#placeholder = placeholder;
+      this.label = createEl("span", { class: "uc-tf-dd-label uc-tf-dd-label--placeholder" }, placeholder);
+      this.trigger = createEl("button", {
+        type: "button", class: "uc-tf-dd-trigger uc-tf-field",
+        "aria-label": ariaLabel, "aria-haspopup": "listbox", "aria-expanded": "false",
+        onclick: (e) => { e.preventDefault(); this.toggle(); },
+        onkeydown: (e) => this.#onKey(e),
+      }, [createEl("span", { class: "uc-tf-dd-lead" }), this.label, createEl("span", { class: "uc-tf-dd-caret" })]);
+      this.menu = createEl("div", { class: "uc-tf-dd-menu", role: "listbox", hidden: true });
+
+      // Inline editor: shown instead of the trigger when an `editable` item (New
+      // Folder / New Tab Group) is selected, so the name is typed right here.
+      this.editLead = createEl("span", { class: "uc-tf-dd-lead" });
+      this.editInput = createEl("input", {
+        type: "text", class: "uc-tf-dd-edit", "aria-label": (ariaLabel ? ariaLabel + " " : "") + "name",
+        onkeydown: (e) => this.#onEditKey(e),
+      });
+      this.editor = createEl("div", { class: "uc-tf-dd-editor uc-tf-field" }, [
+        this.editLead, this.editInput,
+        createEl("button", {
+          type: "button", class: "uc-tf-dd-editcaret", "aria-label": "Change destination",
+          onclick: (e) => { e.preventDefault(); e.stopPropagation(); this.open(); },
+        }, [createEl("span", { class: "uc-tf-dd-caret" })]),
+      ]);
+
+      this.element = createEl("div", { class: "uc-tf-dd" + (className ? " " + className : "") }, [this.trigger, this.editor, this.menu]);
+      this.#onDocDown = (e) => { if (!this.element.contains(e.target)) this.close(); };
+    }
+
+    get value() { return this.#selected ? this.#selected.value : null; }
+    get selectedItem() { return this.#selected; }
+    get isOpen() { return !this.menu.hidden; }
+    /** The name typed into the inline editor (empty unless an `editable` item is selected). */
+    get editValue() { return this.#editing ? this.editInput.value.trim() : ""; }
+    get isEditing() { return this.#editing; }
+
+    /** Build the icon element for an item (emoji span, SVG-class span, or null). */
+    #iconEl(item) {
+      if (item.emoji) return createEl("span", { class: "uc-tf-dd-emoji" }, item.emoji);
+      if (item.icon) return createEl("span", { class: "uc-tf-dd-icon uc-tf-dd-icon--" + item.icon });
+      return null;
+    }
+
+    /** @param {DropdownItem[]} items */
+    setItems(items) {
+      this.#items = items;
+      // Render rows, grouping consecutive `action` items into a recessed "tray"
+      // (the grouped-tray treatment that sets create/move actions apart from folders).
+      const rows = [];
+      let tray = null;
+      const flushTray = () => { if (tray) { rows.push(tray); tray = null; } };
+      for (const it of items) {
+        if (it.header) {
+          flushTray();
+          rows.push(createEl("div", { class: "uc-tf-dd-header" + (it.divider ? " uc-tf-dd-header--divider" : "") }, it.header));
+          continue;
+        }
+        const row = createEl("div", {
+          class: "uc-tf-dd-item" + (it.action ? " uc-tf-dd-item--action" : ""), role: "option", title: it.title || it.label,
+          style: it.depth ? "padding-inline-start:" + (10 + it.depth * 14) + "px" : null,
+          onclick: () => this.#choose(it),
+          onmouseenter: () => { this.#activeIndex = this.#options().indexOf(it); this.#highlight(); },
+        }, [this.#iconEl(it), createEl("span", { class: "uc-tf-dd-itemlabel" }, it.label)]);
+        it._row = row;
+        if (it.action) {
+          if (!tray) tray = createEl("div", { class: "uc-tf-dd-tray" });
+          tray.appendChild(row);
+        } else {
+          flushTray();
+          rows.push(row);
+        }
+      }
+      flushTray();
+      this.menu.replaceChildren(...rows);
+      // keep the current selection if its value still exists, else clear the label
+      if (this.#selected && !this.#options().some((o) => o.value === this.#selected.value)) this.#setSelected(null);
+    }
+
+    #options() { return this.#items.filter((i) => !i.header); }
+
+    /** Select by value programmatically (updates the trigger; does NOT fire onSelect). */
+    select(value) { this.#setSelected(this.#options().find((i) => i.value === value) || null); }
+
+    /** Clear the selection back to the placeholder (for action-style dropdowns). */
+    reset() { this.#setSelected(null); }
+
+    #setSelected(item) {
+      this.#selected = item;
+      const lead = this.trigger.querySelector(".uc-tf-dd-lead");
+      const icon = item ? this.#iconEl(item) : null;
+      lead.replaceChildren(...(icon ? [icon] : []));
+      this.label.textContent = item ? item.label : this.#placeholder;
+      this.label.classList.toggle("uc-tf-dd-label--placeholder", !item);
+      if (item && item.editable) this.#enterEdit(item);
+      else this.#exitEdit();
+    }
+
+    /** Swap the trigger for the inline name editor (for "create new"-style items). */
+    #enterEdit(item) {
+      this.#editing = true;
+      this.element.classList.add("uc-tf-dd--editing");
+      const icon = this.#iconEl(item);
+      this.editLead.replaceChildren(...(icon ? [icon] : []));
+      this.editInput.placeholder = item.editPlaceholder || "Name";
+      this.editInput.value = "";
+    }
+
+    /** Restore the normal trigger view. */
+    #exitEdit() {
+      if (!this.#editing) return;
+      this.#editing = false;
+      this.element.classList.remove("uc-tf-dd--editing");
+      this.editInput.value = "";
+    }
+
+    /** Focus the inline name editor (deferred so it wins over the trigger's focus). */
+    focusEditor() { if (this.#editing) { this.editInput.focus(); this.editInput.select(); } }
+
+    #choose(item) {
+      this.#setSelected(item);
+      this.close();
+      if (this.#editing) this.focusEditor();
+      else this.trigger.focus();
+      this.#onSelect(item);
+    }
+
+    /** Enter confirms (e.g. runs the move); Escape clears back to the placeholder. */
+    #onEditKey(event) {
+      if (event.key === "Enter") { event.preventDefault(); event.stopPropagation(); this.#onConfirm(); }
+      else if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); this.reset(); this.trigger.focus(); }
+      else if (event.key === "ArrowDown") { event.preventDefault(); this.open(); }
+    }
+
+    toggle() { this.isOpen ? this.close() : this.open(); }
+    open() {
+      this.menu.hidden = false;
+      this.trigger.setAttribute("aria-expanded", "true");
+      // Flip the menu above the trigger when there isn't room below (e.g. destination
+      // dropdown near the dialog's bottom). Anchor to whichever face is visible.
+      const rect = (this.#editing ? this.editor : this.trigger).getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const menuHeight = Math.min(this.menu.scrollHeight + 8, 328);
+      this.element.classList.toggle("uc-tf-dd--up", spaceBelow < menuHeight && rect.top > spaceBelow);
+      document.addEventListener("mousedown", this.#onDocDown, true);
+      const opts = this.#options();
+      this.#activeIndex = this.#selected ? opts.indexOf(this.#selected) : (opts.length ? 0 : -1);
+      this.#highlight(true);
+    }
+    close() {
+      this.menu.hidden = true;
+      this.trigger.setAttribute("aria-expanded", "false");
+      document.removeEventListener("mousedown", this.#onDocDown, true);
+    }
+
+    #highlight(scroll = false) {
+      const opts = this.#options();
+      opts.forEach((it, i) => it._row && it._row.classList.toggle("uc-tf-dd-item--active", i === this.#activeIndex));
+      if (scroll) opts[this.#activeIndex]?._row?.scrollIntoView({ block: "nearest" });
+    }
+
+    #onKey(event) {
+      const opts = this.#options();
+      switch (event.key) {
+        case "ArrowDown":
+          event.preventDefault(); event.stopPropagation();
+          if (!this.isOpen) this.open();
+          else { this.#activeIndex = Math.min(opts.length - 1, this.#activeIndex + 1); this.#highlight(true); }
+          break;
+        case "ArrowUp":
+          event.preventDefault(); event.stopPropagation();
+          if (this.isOpen) { this.#activeIndex = Math.max(0, this.#activeIndex - 1); this.#highlight(true); }
+          break;
+        case "Enter":
+        case " ":
+          event.preventDefault(); event.stopPropagation();
+          if (!this.isOpen) this.open();
+          else if (opts[this.#activeIndex]) this.#choose(opts[this.#activeIndex]);
+          break;
+        case "Escape":
+          if (this.isOpen) { event.preventDefault(); event.stopPropagation(); this.close(); }
+          break;
+      }
+    }
   }
 
   // =====================================================================
@@ -698,8 +929,6 @@
     #workspaces = [];
     /** @type {Object<string,HTMLElement>} captured references to key UI elements */
     #ui = {};
-    /** @type {Map<HTMLOptionElement,Object>} maps each destination <option> to its action descriptor */
-    #destActions = new Map();
     /** @type {?Element} element focused before the dialog opened, restored on close */
     #previousFocus = null;
     /** @type {?string} workspace scope for search: undefined = active, "all", or a uuid */
@@ -727,7 +956,6 @@
       this.#applyTheme();                                    // apply the saved colours to this dialog
       document.addEventListener("keydown", this.#onDocumentKey);
       this.#fillDestinations();
-      this.#updateNewNameVisibility();
       this.#renderSavedChips();
       this.#syncSettingsControls();                          // settings checkboxes + workspace picker
       this.#ui.searchFoldersCheckbox.checked = Settings.defaultSearchInFolders;
@@ -806,9 +1034,9 @@
           createEl("div", { class: "uc-tf-title" }, [
             createEl("span", { id: "uc-tf-title" }, "Filter tabs"),
             createEl("span", { class: "uc-tf-title-actions" }, [
-              this.#iconButton("uc-tf-help", "Help & operators", () => this.#showView(this.#ui.helpPanel.hidden ? "help" : "tabs"), "?"),
-              this.#iconButton("uc-tf-gear", "Settings", () => this.#showView(this.#ui.settingsPanel.hidden ? "settings" : "tabs"), "⚙"),
-              this.#iconButton("uc-tf-close", "Close dialog", () => this.close(), "✕"),
+              this.#iconButton("uc-tf-help", "Help & operators", () => this.#showView(this.#ui.helpPanel.hidden ? "help" : "tabs"), ""),
+              this.#iconButton("uc-tf-gear", "Settings", () => this.#showView(this.#ui.settingsPanel.hidden ? "settings" : "tabs"), ""),
+              this.#iconButton("uc-tf-close", "Close dialog", () => this.close(), ""),
             ]),
           ]),
 
@@ -820,7 +1048,7 @@
             createEl("button", {
               class: "uc-tf-rebtn uc-tf-field", title: "Toggle regex mode", "aria-label": "Toggle regex mode", ref: ref("regexBtn"),
               onclick: () => this.#setRegexMode(!this.#regexMode),
-            }, ".*"),
+            }),
             createEl("div", { class: "uc-tf-inputwrap" }, [
               createEl("input", {
                 class: "uc-tf-search uc-tf-field", type: "text", placeholder: "Search tabs (title or URL)...",
@@ -834,7 +1062,7 @@
               }),
               this.#iconButton("uc-tf-clearx", "Clear search",
                 () => { ui.searchInput.value = ""; this.#rebuildList(); ui.searchInput.focus(); },
-                "✕", { hidden: true, ref: ref("clearBtn") }),
+                "", { hidden: true, ref: ref("clearBtn") }),
             ]),
             createEl("button", {
               class: "uc-tf-savebtn uc-tf-field", title: "Save this pattern", "aria-label": "Save this pattern", ref: ref("saveBtn"),
@@ -844,28 +1072,28 @@
                 PatternStore.add(query, this.#regexMode);
                 this.#renderSavedChips();
               },
-            }, "★"),
+            }),
           ]),
 
           // Saved-pattern chips (filled by #renderSavedChips)
           createEl("div", { class: "uc-tf-chips", ref: ref("chipsRow") }),
 
-          // Recent searches (history) row — shown only when enabled and non-empty
+          // Recent searches (history) row — shown only when enabled and non-empty.
+          // The dropdown's placeholder already says "Recent searches…", so no row label.
           createEl("div", { class: "uc-tf-histrow", hidden: true, ref: ref("histRow") }, [
-            createEl("span", { class: "uc-tf-histlabel" }, "Recent:"),
-            createEl("select", {
-              class: "uc-tf-histpicker uc-tf-field", "aria-label": "Recent searches", ref: ref("historyPicker"),
-              onchange: () => this.#applyHistoryPick(),
-            }),
+            (ui.historyDD = new Dropdown({
+              ariaLabel: "Recent searches", placeholder: "Recent searches…", className: "uc-tf-histdd",
+              onSelect: (item) => { this.#applyHistoryEntry(item.value); ui.historyDD.reset(); },
+            })).element,
           ]),
 
-          // Workspace scope row (own row, shown only when cross-workspace is on)
+          // Workspace scope row (shown only when cross-workspace is on). The dropdown
+          // shows e.g. "All workspaces", so no separate row label.
           createEl("div", { class: "uc-tf-wsrow", hidden: true, ref: ref("wsRow") }, [
-            createEl("span", { class: "uc-tf-wslabel" }, "Workspace:"),
-            createEl("select", {
-              class: "uc-tf-wspicker uc-tf-field", "aria-label": "Workspace scope", ref: ref("workspacePicker"),
-              onchange: () => { this.#workspaceScope = ui.workspacePicker.value; this.#rebuildList(); },
-            }),
+            (ui.workspaceDD = new Dropdown({
+              ariaLabel: "Workspace scope", className: "uc-tf-wsdd",
+              onSelect: (item) => { this.#workspaceScope = item.value === "all" ? "all" : item.value; this.#rebuildList(); },
+            })).element,
           ]),
 
           // Selection row: count + select-all/clear + Duplicates / Search-in-folders
@@ -892,13 +1120,13 @@
             createEl("div", { class: "uc-tf-vsizer", ref: ref("sizer") }),
           ]),
 
-          // Destination row
+          // Destination row — the dropdown carries its own inline name editor for
+          // "New Folder" / "New Tab Group" (no separate field), and Enter there moves.
           createEl("div", { class: "uc-tf-destrow" }, [
-            createEl("select", {
-              class: "uc-tf-select uc-tf-field", "aria-label": "Move destination", ref: ref("destSelect"),
-              onchange: () => this.#updateNewNameVisibility(),
-            }),
-            createEl("input", { class: "uc-tf-newname uc-tf-field", type: "text", placeholder: "Name", "aria-label": "New folder or group name", ref: ref("newNameInput") }),
+            (ui.destDD = new Dropdown({
+              ariaLabel: "Move destination", placeholder: "Choose a destination…", className: "uc-tf-destdd",
+              onConfirm: () => this.#moveChecked(),
+            })).element,
           ]),
 
           // Status line + action buttons
@@ -906,7 +1134,7 @@
           createEl("div", { class: "uc-tf-btns" }, [
             this.#button("Cancel", false, () => this.close()),
             this.#button("Close selected", false, () => this.#closeSelected()),
-            this.#button("Multi-select", false, () => this.#multiSelectChecked()),
+            this.#button("Select in tab bar", false, () => this.#selectInTabBar()),
             this.#button("Move to destination", true, () => this.#moveChecked()),
           ]),
           ]), // end tabs panel
@@ -929,105 +1157,179 @@
     /** Build the settings view (its controls write through `Settings` on change). */
     #buildSettingsPanel(ref) {
       const ui = this.#ui;
-      const toggle = (refName, label, hint, onChange) =>
-        createEl("label", { class: "uc-tf-setting", title: hint || "" }, [
-          createEl("input", { type: "checkbox", ref: ref(refName), onchange: onChange }),
-          label,
+      /** A group: small uppercase label + a rounded card holding the rows. */
+      const group = (label, ...rows) =>
+        createEl("div", { class: "uc-tf-sgroup" }, [
+          createEl("div", { class: "uc-tf-sgroup-h" }, label),
+          createEl("div", { class: "uc-tf-scard" }, rows),
         ]);
+      /** The title + optional sub-line text block on the left of a row. */
+      const text = (title, sub) =>
+        createEl("div", { class: "uc-tf-srow-text" }, [
+          createEl("div", { class: "uc-tf-srow-title" }, title),
+          sub ? createEl("div", { class: "uc-tf-srow-sub" }, sub) : null,
+        ]);
+      /** A toggle-switch row (a styled checkbox so the existing .checked logic is unchanged). */
+      const switchRow = (refName, title, sub, onChange) =>
+        createEl("label", { class: "uc-tf-srow" }, [
+          text(title, sub),
+          createEl("span", { class: "uc-tf-switch" }, [
+            createEl("input", { type: "checkbox", class: "uc-tf-switch-input", ref: ref(refName), onchange: onChange }),
+            createEl("span", { class: "uc-tf-switch-track" }, [createEl("span", { class: "uc-tf-switch-knob" })]),
+          ]),
+        ]);
+
       return createEl("div", { class: "uc-tf-panel uc-tf-settings", hidden: true, ref: ref("settingsPanel") }, [
-        createEl("div", { class: "uc-tf-settings-title" }, "Settings"),
-        toggle("setAllWs", "Search across all workspaces", "Search every workspace, not just the active one", () => {
-          Settings.setBool("searchAllWorkspaces", ui.setAllWs.checked);
-          this.#workspaceScope = ui.setAllWs.checked ? "all" : undefined;
-          this.#syncSettingsControls();
-        }),
-        toggle("setEmptyAll", "Empty search shows all tabs", "When off, an empty box shows a hint instead of every tab",
-          () => Settings.setBool("emptyShowsAll", ui.setEmptyAll.checked)),
-        toggle("setDefFolders", "Search in folders by default", "Initial state of the 'Search in folders' toggle",
-          () => Settings.setBool("defaultSearchInFolders", ui.setDefFolders.checked)),
-        toggle("setKeepOpen", "Keep window open after operation", "Stay open after move/close (close with Esc, ✕, or jumping to a tab)",
-          () => Settings.setBool("keepOpenAfterAction", ui.setKeepOpen.checked)),
-        toggle("setShowHistory", "Show filter history", "Show the recent-searches dropdown above the list", () => {
-          Settings.setBool("showFilterHistory", ui.setShowHistory.checked);
-          this.#syncSettingsControls();
-        }),
-        createEl("div", { class: "uc-tf-setting uc-tf-setting--text" }, [
-          createEl("span", {}, "History dropdown size"),
-          createEl("input", {
-            class: "uc-tf-field uc-tf-histsize", type: "number", min: "1", max: "50", "aria-label": "How many recent searches to list",
-            ref: ref("setHistorySize"),
-            onchange: () => { Settings.setInt("historySize", parseInt(ui.setHistorySize.value, 10) || 10); ui.setHistorySize.value = Settings.historySize; },
-          }),
-          createEl("button", { class: "uc-tf-btn uc-tf-managehist", onclick: () => this.#showView("history") }, "Manage history…"),
+        createEl("div", { class: "uc-tf-panel-scroll" }, [
+
+          group("Search",
+            switchRow("setAllWs", "Search across all workspaces", "Look beyond the active workspace", () => {
+              Settings.setBool("searchAllWorkspaces", ui.setAllWs.checked);
+              this.#workspaceScope = ui.setAllWs.checked ? "all" : undefined;
+              this.#syncSettingsControls();
+            }),
+            switchRow("setEmptyAll", "Empty search shows all tabs", null,
+              () => Settings.setBool("emptyShowsAll", ui.setEmptyAll.checked)),
+            switchRow("setDefFolders", "Search in folders by default", "Match folder names too, not just title & URL",
+              () => Settings.setBool("defaultSearchInFolders", ui.setDefFolders.checked)),
+          ),
+
+          group("Window & history",
+            switchRow("setKeepOpen", "Keep window open after operation", null,
+              () => Settings.setBool("keepOpenAfterAction", ui.setKeepOpen.checked)),
+            switchRow("setShowHistory", "Show filter history", null, () => {
+              Settings.setBool("showFilterHistory", ui.setShowHistory.checked);
+              this.#syncSettingsControls();
+            }),
+            createEl("div", { class: "uc-tf-srow uc-tf-srow--static" }, [
+              text("History dropdown size", "Recent searches kept in the list"),
+              createEl("div", { class: "uc-tf-stepper" }, [
+                createEl("button", { class: "uc-tf-step", type: "button", "aria-label": "Fewer", onclick: () => this.#bumpHistorySize(-1) }, "−"),
+                createEl("span", { class: "uc-tf-step-val", ref: ref("histSizeVal") }),
+                createEl("button", { class: "uc-tf-step", type: "button", "aria-label": "More", onclick: () => this.#bumpHistorySize(1) }, "+"),
+              ]),
+            ]),
+            createEl("div", { class: "uc-tf-srow uc-tf-srow--static" }, [
+              text("Saved searches", "Review or remove stored queries"),
+              createEl("button", { class: "uc-tf-sbtn", onclick: () => this.#showView("history") }, "Manage history…"),
+            ]),
+          ),
+
+          group("Appearance",
+            createEl("div", { class: "uc-tf-srow uc-tf-srow--static" }, [
+              text("Theme & accent colour", "Active row, toggles and focus cues"),
+              createEl("button", { class: "uc-tf-sbtn", onclick: () => this.#showView("theme") }, [
+                createEl("span", { class: "uc-tf-sbtn-dot" }), "Edit theme…",
+              ]),
+            ]),
+            createEl("div", { class: "uc-tf-srow uc-tf-srow--static" }, [
+              text("Animations", "How much motion (0% = off)"),
+              createEl("div", { class: "uc-tf-slider" }, [
+                createEl("input", {
+                  type: "range", min: "0", max: "100", step: "5", class: "uc-tf-range",
+                  "aria-label": "Animation intensity (percent)", ref: ref("setMotion"),
+                  oninput: () => {
+                    Settings.setInt("motionScale", parseInt(ui.setMotion.value, 10) || 0);
+                    ui.motionVal.textContent = Settings.motionScale + "%";
+                    this.#applyMotion();
+                  },
+                }),
+                createEl("span", { class: "uc-tf-slider-val", ref: ref("motionVal") }),
+              ]),
+            ]),
+          ),
+
+          group("Shortcut",
+            createEl("label", { class: "uc-tf-srow uc-tf-srow--static" }, [
+              text("Open Filter tabs", "Applies after restart"),
+              createEl("input", {
+                class: "uc-tf-shortcut-rec", type: "text", readOnly: true,
+                placeholder: "Click, then press a combo", "aria-label": "Open shortcut", ref: ref("setShortcut"),
+                onfocus: () => this.#startRecordingShortcut(),
+                onblur: () => this.#stopRecordingShortcut(),
+                onkeydown: (e) => this.#onRecordKey(e),
+              }),
+            ]),
+            // Override warning shown when the chosen combo is already bound in Zen.
+            createEl("div", { class: "uc-tf-warn", hidden: true, ref: ref("setShortcutWarn") }),
+          ),
         ]),
-        createEl("div", { class: "uc-tf-setting uc-tf-setting--text" }, [
-          createEl("span", {}, "Appearance"),
-          createEl("button", { class: "uc-tf-btn", onclick: () => this.#showView("theme") }, "Edit theme…"),
-        ]),
-        createEl("label", { class: "uc-tf-setting uc-tf-setting--text" }, [
-          "Shortcut",
-          createEl("input", {
-            class: "uc-tf-field uc-tf-shortcut-rec", type: "text", readOnly: true,
-            placeholder: "Click, then press a combo", "aria-label": "Open shortcut", ref: ref("setShortcut"),
-            onfocus: () => this.#startRecordingShortcut(),
-            onblur: () => this.#stopRecordingShortcut(),
-            onkeydown: (e) => this.#onRecordKey(e),
-          }),
-          createEl("span", { class: "uc-tf-hint" }, "(applies after restart)"),
-        ]),
-        // Override warning shown when the chosen combo is already bound in Zen.
-        createEl("div", { class: "uc-tf-warn", hidden: true, ref: ref("setShortcutWarn") }),
-        createEl("div", { class: "uc-tf-btns" }, [this.#button("Back", true, () => this.#showView("tabs"))]),
+        createEl("div", { class: "uc-tf-btns uc-tf-btns--end" }, [this.#button("Back", true, () => this.#showView("tabs"))]),
       ]);
+    }
+
+    /** Step the history-dropdown size pref within [1,50] and reflect it in the UI. */
+    #bumpHistorySize(delta) {
+      const next = Math.min(50, Math.max(1, Settings.historySize + delta));
+      Settings.setInt("historySize", next);
+      if (this.#ui.histSizeVal) this.#ui.histSizeVal.textContent = next;
+      this.#fillHistoryPicker();
     }
 
     /** Build the help view: search operators, keyboard shortcuts, and tips. */
     #buildHelpPanel(ref) {
-      /** One reference row: a monospace token/key on the left, its meaning on the right. */
-      const row = (token, desc) =>
-        createEl("div", { class: "uc-tf-help-row" }, [
-          createEl("code", { class: "uc-tf-kbd" }, token),
-          createEl("span", { class: "uc-tf-help-desc" }, desc),
+      /** A section: uppercase label + optional muted tag + a hairline rule, then its body. */
+      const section = (label, tag, ...body) =>
+        createEl("div", { class: "uc-tf-hsec" }, [
+          createEl("div", { class: "uc-tf-hsec-h" }, [
+            createEl("span", { class: "uc-tf-hsec-l" }, label),
+            tag ? createEl("span", { class: "uc-tf-hsec-tag" }, tag) : null,
+            createEl("div", { class: "uc-tf-hrule" }),
+          ]),
+          ...body,
         ]);
-      const heading = (text) => createEl("div", { class: "uc-tf-help-h" }, text);
+      /** A token/key chip on the left, its meaning on the right (chipClass differs for keys). */
+      const pairGrid = (chipClass, pairs) =>
+        createEl("div", { class: "uc-tf-hgrid" },
+          pairs.flatMap(([token, desc]) => [
+            createEl(chipClass === "uc-tf-hkbd" ? "span" : "code", { class: chipClass }, token),
+            createEl("span", { class: "uc-tf-hdesc" }, desc),
+          ]));
 
       return createEl("div", { class: "uc-tf-panel uc-tf-help-panel", hidden: true, ref: ref("helpPanel") }, [
-        createEl("div", { class: "uc-tf-settings-title" }, "Help & operators"),
-        createEl("div", { class: "uc-tf-help-scroll" }, [
+        createEl("div", { class: "uc-tf-panel-scroll" }, [
 
-          heading("Search operators (smart mode)"),
-          row("foo bar", "AND — every term must match (a space joins terms)"),
-          row("foo AND bar", "AND — explicit; same as a space (AND must be UPPERCASE)"),
-          row("foo | bar", "OR — either side matches"),
-          row("foo OR bar", "OR — explicit keyword (OR must be UPPERCASE)"),
-          row("!term  -term", "NOT — exclude tabs containing the term"),
-          row('"exact phrase"', "Match the quoted text literally (spaces included)"),
-          row("wow*  v?d", "Wildcards — * = any run of chars, ? = any single char"),
-          row("git OR *.dev", "Operators combine: groups split on OR, AND inside each"),
-          createEl("div", { class: "uc-tf-help-note" },
-            "Terms match the tab title and URL together (plus the folder name when “Search in folders” is on). " +
-            "Lowercase “and”/“or” are treated as ordinary words, not operators."),
+          section("Search operators", "smart mode",
+            createEl("div", { class: "uc-tf-hnote" },
+              "Terms match the tab title and URL together — plus the folder name when “Search in folders” is on. " +
+              "Lowercase and / or count as ordinary words."),
+            pairGrid("uc-tf-hcode", [
+              ["foo bar", "AND — every term must match (a space joins terms)"],
+              ["foo AND bar", "Explicit AND — same as a space (must be UPPERCASE)"],
+              ["foo | bar", "OR — either side matches"],
+              ["foo OR bar", "Explicit OR keyword (must be UPPERCASE)"],
+              ["!term  -term", "NOT — exclude tabs containing the term"],
+              ['"exact phrase"', "Match the quoted text literally (spaces included)"],
+              ["git*  v?", "Wildcards — * any run of chars, ? exactly one"],
+              ["git OR *.dev", "Operators combine: groups split on OR, AND inside each"],
+            ]),
+          ),
 
-          heading("Regex mode (the .* button)"),
-          createEl("div", { class: "uc-tf-help-note" },
-            "Turns the whole box into one case-insensitive regular expression. " +
-            "Smart operators above no longer apply. Length-capped and nested-quantifier-guarded to keep the UI responsive."),
+          section("Regex mode", "the .* button",
+            createEl("div", { class: "uc-tf-hbox" },
+              "Turns the whole box into one case-insensitive regular expression — the smart operators above no longer apply. " +
+              "Length-capped and nested-quantifier-guarded to keep the UI responsive."),
+          ),
 
-          heading("Keyboard"),
-          row("↑ / ↓", "Move the highlighted row"),
-          row("Space", "Toggle the highlighted row's selection (and advance)"),
-          row("Enter", "Jump to the highlighted tab"),
-          row("Ctrl + Enter", "Toggle the highlighted row's selection (stay put)"),
-          row("Delete", "Close the selection — or, if nothing is selected, the highlighted tab"),
-          row("Tab", "Cycle the dialog's controls"),
-          row("Esc", "Close the dialog"),
+          section("Keyboard", null,
+            pairGrid("uc-tf-hkbd", [
+              ["↑ / ↓", "Move the highlighted row"],
+              ["Space", "Toggle the row's selection (and advance)"],
+              ["Enter", "Jump to the highlighted tab"],
+              ["Ctrl+Enter", "Toggle the row's selection (stay put)"],
+              ["Delete", "Close the selection — or the highlighted tab"],
+              ["Tab", "Cycle the dialog's controls"],
+              ["Esc", "Close the dialog"],
+            ]),
+          ),
 
-          heading("Tips"),
-          createEl("div", { class: "uc-tf-help-note" },
-            "Your selection persists as you change the search. “Select all” adds every tab in the current search. " +
-            "Right-click a result row for domain actions and bookmarking; right-click a tab in the strip for the Tab Filter submenu."),
+          section("Tips", null,
+            createEl("div", { class: "uc-tf-htip" },
+              "Your selection persists as you change the search. “Select all” adds every tab in the current search. " +
+              "Right-click a result row for domain actions and bookmarking; right-click a tab in the strip for the Tab Filter submenu."),
+          ),
         ]),
-        createEl("div", { class: "uc-tf-btns" }, [this.#button("Back", true, () => this.#showView("tabs"))]),
+        createEl("div", { class: "uc-tf-btns uc-tf-btns--end" }, [this.#button("Back", true, () => this.#showView("tabs"))]),
       ]);
     }
 
@@ -1087,7 +1389,7 @@
               createEl("span", { class: "uc-tf-theme-prevtext" }, "Highlighted row"),
             ]),
             createEl("div", { class: "uc-tf-theme-prevbtns" }, [
-              createEl("button", { class: "uc-tf-rebtn uc-tf-rebtn--on uc-tf-field" }, ".*"),
+              createEl("button", { class: "uc-tf-rebtn uc-tf-rebtn--on uc-tf-field" }),
               createEl("button", { class: "uc-tf-btn uc-tf-btn--primary" }, "Button"),
             ]),
           ]),
@@ -1145,6 +1447,14 @@
       const overlay = this.#ui.overlay;
       if (!overlay) return;
       overlay.style.setProperty("--uc-tf-accent", Settings.themeAccent || THEME_DEFAULT_ACCENT);
+      this.#applyMotion();
+    }
+
+    /** Push the animation-intensity setting (0–100%) to the overlay as a 0–1 multiplier. */
+    #applyMotion() {
+      const overlay = this.#ui.overlay;
+      if (!overlay) return;
+      overlay.style.setProperty("--uc-tf-motion", (Settings.motionScale / 100).toString());
     }
 
     /** Begin capturing a key combo for the shortcut field. */
@@ -1255,7 +1565,8 @@
       if (ui.setDefFolders) ui.setDefFolders.checked = Settings.defaultSearchInFolders;
       if (ui.setKeepOpen) ui.setKeepOpen.checked = Settings.keepOpenAfterAction;
       if (ui.setShowHistory) ui.setShowHistory.checked = Settings.showFilterHistory;
-      if (ui.setHistorySize) ui.setHistorySize.value = Settings.historySize;
+      if (ui.histSizeVal) ui.histSizeVal.textContent = Settings.historySize;
+      if (ui.setMotion) { ui.setMotion.value = Settings.motionScale; ui.motionVal.textContent = Settings.motionScale + "%"; }
       if (ui.setShortcut) { ui.setShortcut.value = Settings.shortcut; this.#checkShortcutConflict(); }
       const showPicker = Settings.searchAllWorkspaces;
       ui.wsRow.hidden = !showPicker;
@@ -1266,30 +1577,15 @@
     /** Populate the recent-searches dropdown (shown only when enabled and non-empty). */
     #fillHistoryPicker() {
       const ui = this.#ui;
-      if (!ui.histRow) return;
+      if (!ui.historyDD) return;
       if (!Settings.showFilterHistory) { ui.histRow.hidden = true; return; }
       const entries = HistoryStore.load().slice(0, Settings.historySize);
       if (!entries.length) { ui.histRow.hidden = true; return; }
-      const options = [createEl("option", { value: "" }, "Recent searches…")];
-      entries.forEach((entry, index) =>
-        options.push(createEl("option", { value: String(index) }, (entry.regex ? ".* " : "") + entry.q)));
-      ui.historyPicker.replaceChildren(...options);
-      ui.historyPicker.value = "";
+      ui.historyDD.setItems(entries.map((entry) => ({
+        value: entry, label: (entry.regex ? ".* " : "") + entry.q, icon: entry.regex ? "regex" : "history",
+      })));
+      ui.historyDD.reset(); // keep the "Recent searches…" placeholder
       ui.histRow.hidden = false;
-    }
-
-    /** Apply the dropdown-selected recent search to the search box. */
-    #applyHistoryPick() {
-      const ui = this.#ui;
-      const index = parseInt(ui.historyPicker.value, 10);
-      if (Number.isNaN(index)) return;
-      const entry = HistoryStore.load().slice(0, Settings.historySize)[index];
-      ui.historyPicker.value = "";
-      if (!entry) return;
-      ui.searchInput.value = entry.q;
-      this.#setRegexMode(!!entry.regex); // also rebuilds
-      this.#updateClearButton();
-      ui.searchInput.focus();
     }
 
     /** Record the current non-empty search into history (called when a search leads to an action). */
@@ -1311,19 +1607,18 @@
     /** Populate the workspace scope picker (All + every workspace, current marked). */
     #fillWorkspacePicker() {
       const active = ZenTabService.activeWorkspaceId();
-      const options = [createEl("option", { value: "all" }, "🪟 All workspaces")];
+      const items = [{ value: "all", label: "All workspaces", icon: "browser" }];
       for (const ws of ZenTabService.getAllWorkspaces()) {
-        options.push(createEl("option", { value: ws.uuid }, ws.name + (ws.uuid === active ? " (current)" : "")));
+        items.push({ value: ws.uuid, label: ws.rawName + (ws.uuid === active ? " (current)" : ""), emoji: ws.emoji, icon: ws.emoji ? null : "browser" });
       }
-      this.#ui.workspacePicker.replaceChildren(...options);
-      this.#ui.workspacePicker.value = this.#workspaceScope === undefined ? "all" : this.#workspaceScope;
+      this.#ui.workspaceDD.setItems(items);
+      this.#ui.workspaceDD.select(this.#workspaceScope === undefined ? "all" : this.#workspaceScope);
     }
 
     /** ↑/↓ move the cursor, Enter jumps to the tab, Ctrl+Enter toggles its checkbox. */
     #onDialogKey(event) {
       if (event.key === "Tab") { this.#trapFocus(event); return; } // keep focus inside the modal
-      const ui = this.#ui;
-      if (event.target === ui.destSelect || event.target === ui.newNameInput) return; // let form controls keep their keys
+      if (event.target.closest(".uc-tf-dd")) return; // let dropdown trigger / inline name editor keep their keys
       const activeTab = this.#filtered[this.#activeIndex];
       if (event.key === "ArrowDown") { event.preventDefault(); this.#navMode = true; this.#setActiveRow(this.#activeIndex + 1); }
       else if (event.key === "ArrowUp") { event.preventDefault(); this.#navMode = true; this.#setActiveRow(this.#activeIndex - 1); }
@@ -1497,7 +1792,7 @@
         }
       } catch (error) {
         this.#ui.statusLine.textContent = "Bookmark error: " + error.message;
-        console.error("[tab-filter] bookmark error", error);
+        console.error("[ZenTabPalette] bookmark error", error);
       }
     }
 
@@ -1626,56 +1921,53 @@
     }
 
     /**
-     * Snapshot folders/groups/workspaces and (re)populate the destination
-     * <select>: Create-new · active-workspace Folders · Tab Groups · then one
-     * group per other workspace (root move + that workspace's folders).
+     * Snapshot folders/groups/workspaces and (re)populate the destination dropdown:
+     * Create-new · active-workspace Folders · Tab Groups · then one section per other
+     * workspace (root move + that workspace's folders). Each option's `value` IS its
+     * action descriptor, read back by #selectedAction.
      */
     #fillDestinations() {
       this.#folders = ZenTabService.getFolders();
       this.#groups = ZenTabService.getGroups();
       this.#workspaces = ZenTabService.getWorkspaces();
       const activeWorkspace = ZenTabService.activeWorkspaceId();
-      this.#destActions = new Map(); // <option> -> action descriptor (no string parsing)
 
-      const option = (text, action, title) => {
-        const opt = createEl("option", { title }, text);
-        this.#destActions.set(opt, action);
-        return opt;
-      };
-      const folderText = (folder) => "📁 " + "   ".repeat(folder.depth) + (folder.depth ? folder.path : folder.label);
-      const folderOption = (folder) => option(folderText(folder), { type: "folder", folder }, folder.path);
-      /** Build a labelled <optgroup>, or null if it would be empty. */
-      const optgroup = (label, options) => (options.length ? createEl("optgroup", { label }, options) : null);
+      const folderItem = (folder) => ({
+        // Show only the folder's own name; the indentation conveys nesting and the
+        // full path stays in the tooltip (title). Logic is unchanged — `value` is the folder.
+        value: { type: "folder", folder }, label: folder.label,
+        icon: "folder", depth: folder.depth, title: folder.path,
+      });
+      const activeFolders = this.#folders.filter((f) => !f.workspaceId || f.workspaceId === activeWorkspace);
 
-      const activeFolders = this.#folders.filter((folder) => !folder.workspaceId || folder.workspaceId === activeWorkspace);
-
-      const sections = [
-        createEl("optgroup", { label: "Create new" }, [
-          option("➕ New Folder", { type: "newfolder" }),
-          option("➕ New Tab Group", { type: "newgroup" }),
-        ]),
-        optgroup("Folders", activeFolders.map(folderOption)),
-        optgroup("Tab Groups", this.#groups.map((group) => option("🗂 " + group.label, { type: "group", group }))),
-        // One section per other workspace: a "root" target + that workspace's folders
-        ...this.#workspaces.map((workspace) =>
-          createEl("optgroup", { label: "🪟 " + workspace.name }, [
-            option("→ Move to " + workspace.name + " (workspace root)", { type: "workspace", workspace }),
-            ...this.#folders.filter((folder) => folder.workspaceId === workspace.uuid).map(folderOption),
-          ])
-        ),
+      const items = [
+        { header: "Create new" },
+        { value: { type: "newfolder" }, label: "New Folder", icon: "plus", editable: true, editPlaceholder: "New folder name…", action: true },
+        { value: { type: "newgroup" }, label: "New Tab Group", icon: "group", editable: true, editPlaceholder: "New group name…", action: true },
       ];
+      if (activeFolders.length) items.push({ header: "Folders" }, ...activeFolders.map(folderItem));
+      if (this.#groups.length) {
+        items.push({ header: "Tab Groups" });
+        items.push(...this.#groups.map((group) => ({ value: { type: "group", group }, label: group.label, icon: "group" })));
+      }
+      for (const workspace of this.#workspaces) {
+        // Divider above each workspace section so the per-workspace blocks read apart.
+        items.push({ header: (workspace.emoji ? workspace.emoji + " " : "") + workspace.rawName, divider: true });
+        items.push({ value: { type: "workspace", workspace }, label: "Move to workspace root", icon: "browser", action: true });
+        // Create a new folder directly in THIS workspace (no need to switch to it first).
+        items.push({
+          value: { type: "newfolder", workspace }, label: "New folder here", icon: "plus",
+          editable: true, editPlaceholder: "New folder in " + workspace.rawName + "…", action: true,
+        });
+        items.push(...this.#folders.filter((f) => f.workspaceId === workspace.uuid).map(folderItem));
+      }
 
-      this.#ui.destSelect.replaceChildren(...sections.filter(Boolean));
+      this.#ui.destDD.setItems(items);
+      this.#ui.destDD.reset(); // start at the placeholder; the user picks a destination
     }
 
     /** @returns {?Object} action descriptor for the currently selected destination. */
-    #selectedAction() { return this.#destActions.get(this.#ui.destSelect.selectedOptions[0]) || null; }
-
-    /** Show the new-name input only when a "create new" destination is selected. */
-    #updateNewNameVisibility() {
-      const action = this.#selectedAction();
-      this.#ui.newNameInput.hidden = !(action && (action.type === "newfolder" || action.type === "newgroup"));
-    }
+    #selectedAction() { return this.#ui.destDD.value || null; }
 
     /** @returns {MozTabbrowserTab[]} the persistent selection, minus any tab since closed. */
     #checkedTabs() { return [...this.#selected].filter((tab) => tab.isConnected && !tab.closing); }
@@ -1686,15 +1978,15 @@
       const tabs = this.#checkedTabs();
       if (!tabs.length) { ui.statusLine.textContent = "Select at least one tab."; return; }
       const action = this.#selectedAction();
-      if (!action) return;
+      if (!action) { ui.statusLine.textContent = "Choose a destination."; return; }
       try {
         switch (action.type) {
           case "newfolder":
-            ZenTabService.createFolder(tabs, ui.newNameInput.value.trim() || "New Folder");
+            ZenTabService.createFolder(tabs, ui.destDD.editValue || "New Folder", action.workspace?.uuid);
             break;
           case "newgroup": {
             const color = GROUP_COLORS[(this.#folders.length + this.#groups.length) % GROUP_COLORS.length];
-            ZenTabService.createGroup(tabs, ui.newNameInput.value.trim() || "New Group", color);
+            ZenTabService.createGroup(tabs, ui.destDD.editValue || "New Group", color);
             break;
           }
           case "folder":
@@ -1714,12 +2006,16 @@
         this.#afterAction();
       } catch (error) {
         ui.statusLine.textContent = "Error: " + error.message;
-        console.error("[tab-filter] move error", error);
+        console.error("[ZenTabPalette] move error", error);
       }
     }
 
-    /** Add the checked tabs to the browser's multi-selection, then close (closes even in keep-open mode — the point is to act in the tab strip). */
-    #multiSelectChecked() {
+    /**
+     * Hand the checked tabs to Zen's native tab-strip multi-selection (as if you
+     * Ctrl-clicked them in the tab bar), then close so you can use native tab tools
+     * (drag, native right-click, move to new window, etc.) on the search result.
+     */
+    #selectInTabBar() {
       const tabs = this.#checkedTabs();
       if (!tabs.length) { this.#ui.statusLine.textContent = "Select at least one tab."; return; }
       try { ZenTabService.multiSelect(tabs); } catch (e) { console.error(e); }
@@ -1900,7 +2196,7 @@
     contextMenu.insertBefore(openDialog, separator);
     contextMenu.insertBefore(selectSameDomain, openDialog);
     contextMenu.insertBefore(filterByDomain, selectSameDomain);
-    console.log("[tab-filter] tab context items added");
+    console.log("[ZenTabPalette] tab context items added");
   }
 
   /**
@@ -1912,7 +2208,7 @@
     let customizableUI = window.CustomizableUI;
     if (!customizableUI) {
       try { ({ CustomizableUI: customizableUI } = ChromeUtils.importESModule("resource:///modules/CustomizableUI.sys.mjs")); }
-      catch (e) { console.error("[tab-filter] CustomizableUI import failed", e); return; }
+      catch (e) { console.error("[ZenTabPalette] CustomizableUI import failed", e); return; }
     }
     try {
       const existing = customizableUI.getWidget(WIDGET_ID);
@@ -1927,10 +2223,10 @@
           const win = event?.target?.ownerGlobal || event?.view || event?.target?.ownerDocument?.defaultView ||
             Services.wm.getMostRecentWindow("navigator:browser");
           if (win && typeof win.gUCTabFilterOpenDialog === "function") win.gUCTabFilterOpenDialog();
-          else console.error("[tab-filter] button: openDialog not found on window", win);
+          else console.error("[ZenTabPalette] button: openDialog not found on window", win);
         },
       });
-    } catch (e) { console.error("[tab-filter] createWidget failed", e); }
+    } catch (e) { console.error("[ZenTabPalette] createWidget failed", e); }
   }
 
   /** App-wide widget registration + this window's setup. */

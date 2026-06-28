@@ -22,7 +22,12 @@
 .uc-tf-field {
   color: inherit;
   background: color-mix(in srgb, currentColor 8%, transparent);
-  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  border: 1px solid color-mix(in srgb, currentColor 14%, transparent); /* soft, Zen-like */
+}
+.uc-tf-field:focus,
+.uc-tf-field:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--uc-tf-accent) 55%, transparent);
 }
 
 /* Overlay + dialog */
@@ -46,6 +51,7 @@
   padding: 16px;
   border-radius: 14px;
   font-size: 13px;
+  color-scheme: light dark; /* so light-dark() in buttons follows the active Zen theme */
   color: var(--toolbar-color, inherit);
   background: var(--zen-dialog-background, var(--toolbar-bgcolor, #2b2a33));
   border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
@@ -70,15 +76,23 @@
 .uc-tf-help {
   cursor: pointer;
   opacity: 0.7;
-  padding: 2px 6px;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 17px;
+  -moz-context-properties: stroke;
+  stroke: currentColor;
 }
+.uc-tf-help { background-image: url("icons/help.svg"); }
+.uc-tf-gear { background-image: url("icons/settings.svg"); }
+.uc-tf-close { background-image: url("icons/x.svg"); }
 .uc-tf-gear:hover,
 .uc-tf-close:hover,
 .uc-tf-help:hover {
   opacity: 1;
-}
-.uc-tf-help {
-  font-weight: 700;
+  background-color: color-mix(in srgb, currentColor 12%, transparent);
 }
 
 /* Panels: the main tab view and the settings view share this column layout */
@@ -95,47 +109,182 @@
   display: none;
 }
 
-/* Settings view */
-.uc-tf-settings {
-  gap: 12px;
+/* Scrollable body shared by the settings & help views (fills the panel; Back stays put) */
+.uc-tf-panel-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-right: 2px;
 }
+/* shared panel title (history & theme views keep using this) */
 .uc-tf-settings-title {
   font-weight: 600;
   font-size: 14px;
 }
-.uc-tf-setting {
+
+/* ===== Settings view: grouped cards of switch/stepper/button rows ===== */
+.uc-tf-sgroup-h {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.5;
+  margin: 0 0 8px 3px;
+}
+.uc-tf-scard {
+  background: color-mix(in srgb, currentColor 4%, transparent);
+  border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  border-radius: 11px;
+  overflow: hidden;
+}
+.uc-tf-srow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  cursor: pointer;
+}
+.uc-tf-srow + .uc-tf-srow {
+  border-top: 1px solid color-mix(in srgb, currentColor 8%, transparent);
+}
+.uc-tf-srow--static { cursor: default; }
+.uc-tf-srow:not(.uc-tf-srow--static):hover {
+  background: color-mix(in srgb, currentColor 4%, transparent);
+}
+.uc-tf-srow-text { flex: 1; min-width: 0; }
+.uc-tf-srow-title { font-size: 13px; }
+.uc-tf-srow-sub { font-size: 11px; opacity: 0.55; margin-top: 2px; }
+
+/* toggle switch (a styled checkbox — keeps the existing .checked logic) */
+.uc-tf-switch { position: relative; flex-shrink: 0; width: 36px; height: 21px; }
+.uc-tf-switch-input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
+.uc-tf-switch-track {
+  display: block;
+  width: 36px;
+  height: 21px;
+  border-radius: 11px;
+  background: color-mix(in srgb, currentColor 20%, transparent);
+  transition: background 0.15s;
+  pointer-events: none;
+}
+.uc-tf-switch-knob {
+  position: absolute;
+  top: 2.5px;
+  left: 2.5px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  transition: left 0.15s;
+  pointer-events: none;
+}
+.uc-tf-switch-input:checked ~ .uc-tf-switch-track { background: var(--uc-tf-accent); }
+.uc-tf-switch-input:checked ~ .uc-tf-switch-track .uc-tf-switch-knob { left: 17.5px; }
+.uc-tf-switch-input:focus-visible ~ .uc-tf-switch-track {
+  outline: 2px solid var(--uc-tf-accent);
+  outline-offset: 2px;
+}
+
+/* − [n] + stepper (history size) */
+.uc-tf-stepper {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  overflow: hidden;
+}
+.uc-tf-step {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  width: 28px;
+  height: 30px;
+  font-size: 16px;
+  line-height: 1;
+}
+.uc-tf-step:hover { background: color-mix(in srgb, currentColor 10%, transparent); }
+.uc-tf-step-val {
+  min-width: 26px;
+  text-align: center;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* range slider (animation intensity) — native accent-tinted track/thumb */
+.uc-tf-slider { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.uc-tf-range {
+  width: 120px;
+  accent-color: var(--uc-tf-accent);
+  cursor: pointer;
+}
+.uc-tf-slider-val {
+  min-width: 36px;
+  text-align: right;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+}
+
+/* small secondary button used in settings rows (Manage history…, Edit theme…) */
+.uc-tf-sbtn {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 7px 13px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: inherit;
+  background: color-mix(in srgb, currentColor 10%, transparent);
   display: flex;
   align-items: center;
   gap: 8px;
-  cursor: pointer;
-  font-size: 13px;
 }
-.uc-tf-setting--text {
-  cursor: default;
-}
-.uc-tf-setting--text input {
-  flex: 0 0 160px;
-  padding: 6px 8px;
-  border-radius: 8px;
-  font-size: 13px;
-}
+.uc-tf-sbtn:hover { background: color-mix(in srgb, currentColor 16%, transparent); }
+.uc-tf-sbtn-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--uc-tf-accent); }
+
+/* shortcut recorder, styled like a monospace key button */
 .uc-tf-shortcut-rec {
-  cursor: pointer; /* click to capture a key combo */
+  flex-shrink: 0;
+  width: 132px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
   text-align: center;
+  color: inherit;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  cursor: pointer; /* click to capture a key combo */
 }
 .uc-tf-shortcut-rec:focus {
-  outline: 2px solid var(--uc-tf-accent);
-  outline-offset: 1px;
+  outline: none;
+  border-color: color-mix(in srgb, var(--uc-tf-accent) 60%, transparent);
 }
-.uc-tf-hint {
-  font-size: 11px;
-  opacity: 0.55;
-}
+
+/* amber override-warning callout (shown when the combo is already bound in Zen) */
 .uc-tf-warn {
+  margin: 0 12px 12px;
+  padding: 9px 12px;
+  border-radius: 9px;
   font-size: 12px;
-  color: #e6b450;
-  padding: 2px 0;
+  line-height: 1.45;
+  background: color-mix(in srgb, #e0a23a 14%, transparent);
+  box-shadow: inset 3px 0 0 #e0a23a;
 }
+.uc-tf-warn[hidden] { display: none; }
+.uc-tf-btns--end { justify-content: flex-end; }
 
 /* Cross-workspace scope row (own row, shown only when the setting is on) */
 .uc-tf-wsrow {
@@ -179,15 +328,6 @@
   padding: 4px 8px;
   border-radius: 8px;
   font-size: 12px;
-}
-
-/* Settings: history size number input + manage button on the same row */
-.uc-tf-histsize {
-  flex: 0 0 64px !important; /* override the 160px text-setting width */
-  text-align: center;
-}
-.uc-tf-managehist {
-  flex-shrink: 0;
 }
 
 /* History management view */
@@ -332,17 +472,29 @@
   gap: 6px;
   align-items: stretch;
 }
-.uc-tf-rebtn {
-  padding: 0 10px;
-  border-radius: 8px;
-  font-size: 13px;
-  cursor: pointer;
-  font-family: monospace;
+.uc-tf-rebtn,
+.uc-tf-savebtn {
+  appearance: none !important; /* USER-sheet override of the chrome <button> author style */
+  -moz-appearance: none !important;
 }
+.uc-tf-rebtn {
+  flex: 0 0 36px; /* square button for the regex icon */
+  padding: 0;
+  border-radius: var(--zen-border-radius, 8px);
+  cursor: pointer;
+  background-image: url("icons/regex.svg");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 16px;
+  -moz-context-properties: stroke;
+  stroke: currentColor;
+}
+/* On-state: tint with the accent. background-COLOR (not the shorthand) so the icon
+   background-image survives. */
 .uc-tf-rebtn.uc-tf-rebtn--on {
-  background: var(--uc-tf-accent);
-  color: #06241f; /* dark text for contrast on the turquoise accent */
-  border-color: transparent;
+  background-color: var(--uc-tf-accent) !important;
+  stroke: #06241f !important; /* dark icon for contrast on the accent */
+  border-color: transparent !important;
 }
 .uc-tf-inputwrap {
   position: relative;
@@ -352,9 +504,16 @@
 .uc-tf-search {
   box-sizing: border-box;
   width: 100%;
-  padding: 7px 28px 7px 10px;
-  border-radius: 8px;
+  padding: 8px 28px 8px 34px !important; /* room for the search icon; !important beats Zen's author input padding */
+  border-radius: var(--zen-border-radius, 10px);
   font-size: 13px;
+  background-image: url("chrome://global/skin/icons/search-glass.svg");
+  background-repeat: no-repeat;
+  background-position: 11px center;
+  background-size: 14px;
+  -moz-context-properties: fill, fill-opacity;
+  fill: currentColor;
+  fill-opacity: 0.6;
 }
 .uc-tf-search.uc-tf-search--error {
   border-color: #ff8080;
@@ -365,14 +524,30 @@
   top: 50%;
   transform: translateY(-50%);
   cursor: pointer;
-  opacity: 0.6;
-  font-size: 12px;
+  opacity: 0.55;
+  width: 18px;
+  height: 18px;
+  background-image: url("icons/x.svg");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 14px;
+  -moz-context-properties: stroke;
+  stroke: currentColor;
+}
+.uc-tf-clearx:hover {
+  opacity: 1;
 }
 .uc-tf-savebtn {
-  padding: 0 10px;
-  border-radius: 8px;
-  font-size: 14px;
+  flex: 0 0 36px; /* square button for the star icon */
+  padding: 0;
+  border-radius: var(--zen-border-radius, 8px);
   cursor: pointer;
+  background-image: url("icons/star.svg");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 16px;
+  -moz-context-properties: stroke;
+  stroke: currentColor;
 }
 
 /* Saved pattern chips */
@@ -532,18 +707,6 @@
   align-items: center;
   flex-wrap: wrap;
 }
-.uc-tf-select {
-  flex: 1;
-  min-width: 160px;
-  padding: 6px 8px;
-  border-radius: 8px;
-}
-.uc-tf-newname {
-  flex: 1;
-  min-width: 120px;
-  padding: 6px 8px;
-  border-radius: 8px;
-}
 
 /* Status + buttons */
 .uc-tf-status {
@@ -557,23 +720,37 @@
   justify-content: flex-end;
   flex-wrap: wrap;
 }
+/* Buttons match Zen's native dialog buttons (values from Zen's zen-buttons.css).
+   Sine loads us as a USER sheet, so !important is needed to beat the chrome AUTHOR
+   <button> styles. light-dark() follows the browser's light/dark scheme like Zen. */
 .uc-tf-btn {
-  padding: 7px 12px;
-  border-radius: 8px;
+  appearance: none !important;
+  -moz-appearance: none !important;
+  padding: 7px 14px !important;
+  border: none !important;
+  border-radius: 10px !important;
   font-size: 13px;
+  font-weight: 500 !important;
   cursor: pointer;
-  color: inherit;
-  background: color-mix(in srgb, currentColor 10%, transparent);
-  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  color: inherit !important;
+  background: light-dark(rgba(28, 28, 28, 0.1), rgba(255, 255, 255, 0.1)) !important;
+  transition: scale 0.15s ease, background-color 0.1s ease;
 }
+.uc-tf-btn:hover {
+  background: light-dark(rgba(28, 28, 28, 0.16), rgba(255, 255, 255, 0.16)) !important;
+}
+.uc-tf-btn:active {
+  scale: 0.98; /* Zen's subtle press feedback */
+}
+/* Primary = Zen's high-contrast default action (light fill + dark text in dark mode). */
 .uc-tf-btn.uc-tf-btn--primary {
-  background: color-mix(in srgb, currentColor 16%, transparent);
-  color: inherit;
-  border: 1px solid color-mix(in srgb, currentColor 38%, transparent);
-  font-weight: 600;
+  background: light-dark(#1c1c1c, #dddddd) !important;
+  color: light-dark(#ffffff, #1c1c1c) !important;
+  border: none !important;
+  font-weight: 600 !important;
 }
 .uc-tf-btn.uc-tf-btn--primary:hover {
-  background: color-mix(in srgb, currentColor 22%, transparent);
+  background: light-dark(#2a2a2a, #ffffff) !important;
 }
 
 /* Visible keyboard focus for icon-only controls and chips (mouse focus stays subtle) */
@@ -587,55 +764,88 @@
   border-radius: 6px;
 }
 
-/* Help view */
+/* ===== Help view: sectioned operators, regex/tips callouts, kbd chips ===== */
 .uc-tf-help-panel {
   gap: 12px;
 }
-.uc-tf-help-scroll {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
+.uc-tf-hsec {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding-right: 4px;
 }
-.uc-tf-help-h {
-  font-weight: 600;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  opacity: 0.65;
-  margin-top: 10px;
-}
-.uc-tf-help-h:first-child {
-  margin-top: 0;
-}
-.uc-tf-help-row {
+.uc-tf-hsec-h {
   display: flex;
-  align-items: baseline;
-  gap: 10px;
+  align-items: center;
+  gap: 11px;
+  margin-bottom: 10px;
 }
-.uc-tf-kbd {
-  flex: 0 0 130px;
-  font-family: monospace;
-  font-size: 12px;
-  padding: 2px 6px;
-  border-radius: 6px;
-  white-space: nowrap;
-  text-align: center;
-  background: color-mix(in srgb, currentColor 10%, transparent);
-  border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+.uc-tf-hsec-l {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  opacity: 0.55;
 }
-.uc-tf-help-desc {
+.uc-tf-hsec-tag {
+  font-size: 10px;
+  opacity: 0.4;
+}
+.uc-tf-hrule {
   flex: 1;
-  font-size: 12px;
-  opacity: 0.85;
+  height: 1px;
+  background: color-mix(in srgb, currentColor 16%, transparent);
 }
-.uc-tf-help-note {
+.uc-tf-hnote {
+  font-size: 11.5px;
+  opacity: 0.6;
+  line-height: 1.45;
+  margin-bottom: 12px;
+  text-wrap: pretty;
+}
+.uc-tf-hgrid {
+  display: grid;
+  grid-template-columns: 132px 1fr;
+  gap: 9px 14px;
+  align-items: center;
+}
+.uc-tf-hcode,
+.uc-tf-hkbd {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+  padding: 4px 9px;
+  border-radius: 6px;
+  background: color-mix(in srgb, currentColor 7%, transparent);
+  text-align: center;
+  white-space: nowrap;
+}
+.uc-tf-hkbd {
+  border: 1px solid color-mix(in srgb, currentColor 16%, transparent);
+  box-shadow: 0 1.5px 0 color-mix(in srgb, currentColor 16%, transparent);
+}
+.uc-tf-hdesc {
   font-size: 12px;
-  opacity: 0.7;
+  opacity: 0.82;
   line-height: 1.4;
+  text-wrap: pretty;
+}
+.uc-tf-hbox {
+  font-size: 12px;
+  opacity: 0.78;
+  line-height: 1.5;
+  text-wrap: pretty;
+  background: color-mix(in srgb, currentColor 4%, transparent);
+  border: 1px solid color-mix(in srgb, currentColor 8%, transparent);
+  border-radius: 10px;
+  padding: 11px 13px;
+}
+.uc-tf-htip {
+  font-size: 12px;
+  opacity: 0.9;
+  line-height: 1.5;
+  text-wrap: pretty;
+  padding: 11px 13px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--uc-tf-accent) 9%, transparent);
+  box-shadow: inset 3px 0 0 var(--uc-tf-accent);
 }
 
 /* Per-row right-click context menu */
@@ -695,4 +905,326 @@
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+}
+
+/* ===== Custom dropdown (the Dropdown class - replaces native <select>) ===== */
+.uc-tf-dd {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+.uc-tf-dd-trigger {
+  appearance: none !important;
+  -moz-appearance: none !important;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 10px;
+  border-radius: var(--zen-border-radius, 8px);
+  font-size: 13px;
+  cursor: pointer;
+  color: inherit;
+  text-align: start;
+}
+.uc-tf-dd-lead {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.uc-tf-dd-lead:empty {
+  display: none;
+}
+.uc-tf-dd-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.uc-tf-dd-label--placeholder {
+  opacity: 0.6;
+}
+.uc-tf-dd-caret {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  opacity: 0.55;
+  background: url("icons/chevron.svg") no-repeat center / 16px;
+  -moz-context-properties: stroke;
+  stroke: currentColor;
+  transition: transform 0.12s ease;
+}
+.uc-tf-dd-trigger[aria-expanded="true"] .uc-tf-dd-caret {
+  transform: rotate(180deg);
+}
+/* Inline name editor (shown instead of the trigger for "create new" items) */
+.uc-tf-dd-editor {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 4px 6px 4px 10px;
+  border-radius: var(--zen-border-radius, 8px);
+  /* accent-tinted so an active "create new" reads as a distinct, editable state */
+  border-color: color-mix(in srgb, var(--uc-tf-accent) 50%, transparent) !important;
+  background: color-mix(in srgb, var(--uc-tf-accent) 10%, var(--zen-dialog-background, transparent)) !important;
+}
+/* swap trigger <-> editor based on edit state */
+.uc-tf-dd--editing > .uc-tf-dd-trigger { display: none; }
+.uc-tf-dd:not(.uc-tf-dd--editing) > .uc-tf-dd-editor { display: none; }
+.uc-tf-dd-edit {
+  flex: 1;
+  min-width: 0;
+  appearance: none;
+  -moz-appearance: none;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 13px;
+  padding: 4px 0;
+  outline: none;
+}
+.uc-tf-dd-edit::placeholder { opacity: 0.55; }
+.uc-tf-dd-editcaret {
+  appearance: none !important;
+  -moz-appearance: none !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 4px;
+  border: none !important;
+  background: transparent !important;
+  border-radius: 6px;
+  cursor: pointer;
+  color: inherit;
+}
+.uc-tf-dd-editcaret:hover {
+  background: color-mix(in srgb, currentColor 12%, transparent) !important;
+}
+/* popup menu — deliberately lifted off the dialog surface (own elevated tint,
+   accent-tinted border, stronger shadow) so it reads as a separate layer. */
+.uc-tf-dd-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 10;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 5px;
+  border-radius: 12px;
+  color: var(--toolbar-color, inherit);
+  background: color-mix(in srgb, currentColor 7%, var(--zen-dialog-background, var(--toolbar-bgcolor, #2b2a33)));
+  border: 1px solid color-mix(in srgb, var(--uc-tf-accent) 30%, color-mix(in srgb, currentColor 20%, transparent));
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+.uc-tf-dd-menu[hidden] {
+  display: none;
+}
+/* flipped above the trigger (no room below) */
+.uc-tf-dd--up .uc-tf-dd-menu {
+  top: auto;
+  bottom: calc(100% + 4px);
+}
+.uc-tf-dd-header {
+  padding: 7px 8px 3px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.55;
+}
+/* workspace section headers — larger / clearer than the plain category labels,
+   since a workspace is an identity (the small uppercase style suited "Folders" etc.
+   but made workspace names read as tiny). Divider line separates the blocks. */
+.uc-tf-dd-header--divider {
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, currentColor 16%, transparent);
+  font-size: 12.5px;
+  letter-spacing: 0.02em;
+  opacity: 0.82;
+}
+.uc-tf-dd-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 7px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+}
+/* keyboard-active row: accent fill + a solid accent left-bar (the left-bar now
+   belongs to the active state, not to action rows). */
+.uc-tf-dd-item--active {
+  background: color-mix(in srgb, var(--uc-tf-accent) 30%, transparent);
+  box-shadow: inset 2px 0 0 var(--uc-tf-accent);
+}
+/* Grouped tray (variant B): create/move actions share a recessed inset card per
+   section, set apart from the flat folder list — containment carries the distinction. */
+.uc-tf-dd-tray {
+  margin: 1px 3px 5px;
+  padding: 3px;
+  border-radius: 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: color-mix(in srgb, currentColor 5%, transparent);
+  border: 1px solid color-mix(in srgb, currentColor 11%, transparent);
+}
+/* action items inside the tray: accent icon + medium weight label. */
+.uc-tf-dd-item--action {
+  font-weight: 500;
+}
+.uc-tf-dd-item--action .uc-tf-dd-icon {
+  stroke: var(--uc-tf-accent);
+}
+.uc-tf-dd-itemlabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.uc-tf-dd-emoji {
+  flex-shrink: 0;
+}
+/* dropdown item/lead icons (SVG, themed via context-stroke) */
+.uc-tf-dd-icon {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 16px;
+  -moz-context-properties: stroke;
+  stroke: currentColor;
+}
+.uc-tf-dd-icon--plus { background-image: url("icons/plus.svg"); }
+.uc-tf-dd-icon--folder { background-image: url("icons/folder.svg"); }
+.uc-tf-dd-icon--group { background-image: url("icons/group.svg"); }
+.uc-tf-dd-icon--browser { background-image: url("icons/browser.svg"); }
+.uc-tf-dd-icon--regex { background-image: url("icons/regex.svg"); }
+.uc-tf-dd-icon--history { background-image: url("icons/history.svg"); }
+
+/* =====================================================================
+   Motion — spring-y entrances, a cascading menu, and tactile presses.
+   Pure CSS (no motion library). Honours prefers-reduced-motion below.
+   --uc-tf-spring = a cubic-bezier with overshoot (the "settle past, bounce
+   back" that reads as a real motion library). --uc-tf-out = clean ease-out.
+   ===================================================================== */
+.uc-tf-overlay { --uc-tf-spring: cubic-bezier(0.34, 1.56, 0.64, 1); --uc-tf-out: cubic-bezier(0.22, 1, 0.36, 1); }
+
+@keyframes uc-tf-overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+/* the `* var(--uc-tf-motion,1)` factor scales the travel distance with the
+   intensity setting, so 50% = half the throw and 0% = no movement at all. */
+@keyframes uc-tf-dialog-in {
+  from { opacity: 0; transform: translateY(calc(22px * var(--uc-tf-motion, 1))) scale(calc(1 - 0.1 * var(--uc-tf-motion, 1))); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes uc-tf-panel-in {
+  from { opacity: 0; transform: translateY(calc(16px * var(--uc-tf-motion, 1))) scale(calc(1 - 0.015 * var(--uc-tf-motion, 1))); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes uc-tf-menu-in {
+  from { opacity: 0; transform: translateY(calc(-10px * var(--uc-tf-motion, 1))) scale(calc(1 - 0.06 * var(--uc-tf-motion, 1))); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes uc-tf-menu-in-up {
+  from { opacity: 0; transform: translateY(calc(10px * var(--uc-tf-motion, 1))) scale(calc(1 - 0.06 * var(--uc-tf-motion, 1))); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes uc-tf-row-in {
+  from { opacity: 0; transform: translateY(calc(9px * var(--uc-tf-motion, 1))); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* dialog opening: overlay fades, dialog springs up + overshoots into place.
+   Durations + delays are also scaled by --uc-tf-motion → 0% makes them 0s (off). */
+.uc-tf-overlay { animation: uc-tf-overlay-in calc(0.2s * var(--uc-tf-motion, 1)) ease both; }
+.uc-tf-dialog { animation: uc-tf-dialog-in calc(0.46s * var(--uc-tf-motion, 1)) var(--uc-tf-spring, ease) both; }
+
+/* view switch (tabs <-> settings/help/history/theme): the shown panel springs up.
+   Re-runs each time a panel goes from display:none to visible. */
+.uc-tf-panel:not([hidden]) { animation: uc-tf-panel-in calc(0.4s * var(--uc-tf-motion, 1)) var(--uc-tf-spring, ease) both; }
+
+/* dropdown menu pop — springs from the trigger edge (origin flips when it opens upward) */
+.uc-tf-dd-menu {
+  transform-origin: top center;
+  animation: uc-tf-menu-in calc(0.26s * var(--uc-tf-motion, 1)) var(--uc-tf-spring, ease);
+}
+.uc-tf-dd--up .uc-tf-dd-menu {
+  transform-origin: bottom center;
+  animation-name: uc-tf-menu-in-up;
+}
+.uc-tf-dd-menu[hidden] { animation: none; }
+
+/* cascade the first rows in after the menu pops — the motion-library "stagger".
+   Capped at the first 14 so long folder lists stay snappy (the rest just appear). */
+.uc-tf-dd-menu:not([hidden]) > *:nth-child(-n+14) { animation: uc-tf-row-in calc(0.32s * var(--uc-tf-motion, 1)) var(--uc-tf-out, ease) both; }
+.uc-tf-dd-menu:not([hidden]) > *:nth-child(1)  { animation-delay: calc(0.06s  * var(--uc-tf-motion, 1)); }
+.uc-tf-dd-menu:not([hidden]) > *:nth-child(2)  { animation-delay: calc(0.085s * var(--uc-tf-motion, 1)); }
+.uc-tf-dd-menu:not([hidden]) > *:nth-child(3)  { animation-delay: calc(0.11s  * var(--uc-tf-motion, 1)); }
+.uc-tf-dd-menu:not([hidden]) > *:nth-child(4)  { animation-delay: calc(0.135s * var(--uc-tf-motion, 1)); }
+.uc-tf-dd-menu:not([hidden]) > *:nth-child(5)  { animation-delay: calc(0.16s  * var(--uc-tf-motion, 1)); }
+.uc-tf-dd-menu:not([hidden]) > *:nth-child(6)  { animation-delay: calc(0.185s * var(--uc-tf-motion, 1)); }
+.uc-tf-dd-menu:not([hidden]) > *:nth-child(7)  { animation-delay: calc(0.21s  * var(--uc-tf-motion, 1)); }
+.uc-tf-dd-menu:not([hidden]) > *:nth-child(8)  { animation-delay: calc(0.235s * var(--uc-tf-motion, 1)); }
+.uc-tf-dd-menu:not([hidden]) > *:nth-child(9)  { animation-delay: calc(0.26s  * var(--uc-tf-motion, 1)); }
+.uc-tf-dd-menu:not([hidden]) > *:nth-child(10) { animation-delay: calc(0.285s * var(--uc-tf-motion, 1)); }
+.uc-tf-dd-menu:not([hidden]) > *:nth-child(11) { animation-delay: calc(0.31s  * var(--uc-tf-motion, 1)); }
+.uc-tf-dd-menu:not([hidden]) > *:nth-child(12) { animation-delay: calc(0.335s * var(--uc-tf-motion, 1)); }
+.uc-tf-dd-menu:not([hidden]) > *:nth-child(13) { animation-delay: calc(0.36s  * var(--uc-tf-motion, 1)); }
+.uc-tf-dd-menu:not([hidden]) > *:nth-child(14) { animation-delay: calc(0.385s * var(--uc-tf-motion, 1)); }
+
+/* smooth state transitions on the interactive bits (incl. transform for presses) */
+.uc-tf-dd-item,
+.uc-tf-srow,
+.uc-tf-btn,
+.uc-tf-sbtn,
+.uc-tf-step,
+.uc-tf-dd-trigger,
+.uc-tf-dd-editor {
+  transition:
+    background-color calc(0.14s * var(--uc-tf-motion, 1)) ease,
+    box-shadow calc(0.14s * var(--uc-tf-motion, 1)) ease,
+    border-color calc(0.14s * var(--uc-tf-motion, 1)) ease,
+    color calc(0.14s * var(--uc-tf-motion, 1)) ease,
+    transform calc(0.14s * var(--uc-tf-motion, 1)) var(--uc-tf-out, ease);
+}
+
+/* springier toggle knob (its slide also scales with intensity) */
+.uc-tf-switch-knob { transition: left calc(0.26s * var(--uc-tf-motion, 1)) var(--uc-tf-spring, ease); }
+
+/* tactile press — buttons dip when clicked */
+.uc-tf-btn:active,
+.uc-tf-sbtn:active,
+.uc-tf-step:active,
+.uc-tf-dd-trigger:active { transform: scale(calc(1 - 0.04 * var(--uc-tf-motion, 1))); }
+
+@media (prefers-reduced-motion: reduce) {
+  .uc-tf-overlay,
+  .uc-tf-dialog,
+  .uc-tf-panel:not([hidden]),
+  .uc-tf-dd-menu,
+  .uc-tf-dd-menu:not([hidden]) > * { animation: none !important; }
+  .uc-tf-dd-item,
+  .uc-tf-srow,
+  .uc-tf-btn,
+  .uc-tf-sbtn,
+  .uc-tf-step,
+  .uc-tf-dd-trigger,
+  .uc-tf-dd-editor,
+  .uc-tf-switch-track,
+  .uc-tf-switch-knob,
+  .uc-tf-dd-caret { transition: none !important; }
+  .uc-tf-btn:active,
+  .uc-tf-sbtn:active,
+  .uc-tf-step:active,
+  .uc-tf-dd-trigger:active { transform: none; }
 }
