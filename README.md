@@ -47,16 +47,23 @@ Open it via the **toolbar button**, **Ctrl+Shift+F**, or **right-clicking a tab*
 | A tab in the strip | Filter by domain · Select same domain · Filter tabs… |
 
 ### Settings (⚙ in the dialog)
-Search across all workspaces · Empty search shows all tabs · Search in folders by default ·
-**Keep window open after operation** (stay open after move/close instead of closing each time) ·
-**Show filter history** + history dropdown size · **Manage history…** (opens the history page) ·
-**Edit theme…** (opens the colour editor) ·
-Shortcut (with a **warning** + a direct link to Zen's keyboard settings if it overrides an
-existing keybinding). A **? Help** page lists every search operator and keyboard shortcut.
+
+- Search across all workspaces
+- Empty search shows all tabs
+- Search in folders by default
+- **Keep window open after operation** - stay open after move/close instead of closing each time
+- **Show filter history** + history dropdown size
+- **Manage history…** - opens the history page
+- **Edit theme…** - opens the colour editor
+- **Shortcut** - with a warning + a direct link to Zen's keyboard settings if it overrides an existing keybinding
+
+A **? Help** page (the `?` button) lists every search operator and keyboard shortcut.
 
 ### Quality
-Accessible (role=dialog, aria-modal, Tab focus-trap, focus restore, aria-labels) ·
-debug logging behind a pref · all Zen/Firefox APIs verified against the browser source.
+
+- Accessible (role=dialog, aria-modal, Tab focus-trap, focus restore, aria-labels)
+- Debug logging behind a pref
+- All Zen/Firefox APIs verified against the browser source
 
 ## Install
 
@@ -85,10 +92,19 @@ which lets Zen run custom JS.
 ## Settings & prefs
 
 All under `extensions.uctabfilter.*` in `about:config`:
-`searchAllWorkspaces` · `emptyShowsAll` · `defaultSearchInFolders` · `keepOpenAfterAction` ·
-`showFilterHistory` · `historySize` · `themeAccent` · `themePrimary` · `shortcut`
-(e.g. `Ctrl+Shift+F`) · `patterns` (saved searches) · `history` (recent searches) ·
-`debug` (enables `console.debug`).
+
+- `searchAllWorkspaces`
+- `emptyShowsAll`
+- `defaultSearchInFolders`
+- `keepOpenAfterAction`
+- `showFilterHistory`
+- `historySize`
+- `themeAccent`
+- `themePrimary`
+- `shortcut` (e.g. `Ctrl+Shift+F`)
+- `patterns` (saved searches)
+- `history` (recent searches)
+- `debug` (enables `console.debug`)
 
 ## Theming
 
