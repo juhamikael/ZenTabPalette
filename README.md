@@ -38,7 +38,7 @@ Open it via the **toolbar button**, **Ctrl+Shift+F**, or **right-clicking a tab*
 | Move to destination | New/existing **Zen Folder**, new/existing **Tab Group**, or another **Workspace** (incl. its folders) |
 | Bookmark selected / & close | Saves to a new "Saved tabs" folder in the Bookmarks Menu |
 | Close selected | With an in-dialog confirmation |
-| Multi-select | Hands the selection to Zen's native multi-selection |
+| Select in tab bar | Hands the selection to Zen's native tab-strip multi-selection so you can use native tab tools on it |
 
 ### Right-click menus
 | Where | Items |

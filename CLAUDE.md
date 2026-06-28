@@ -123,7 +123,7 @@ The list re-render is explicit (`#rebuildList` / `#renderWindow`) - this is plai
 
 `searchAllWorkspaces` (bool) - `emptyShowsAll` (bool) - `defaultSearchInFolders` (bool) -
 `keepOpenAfterAction` (bool) - `showFilterHistory` (bool) - `historySize` (int) -
-`themeAccent` (string hex) -
+`themeAccent` (string hex) - `motionScale` (int 0-100, animation intensity %) -
 `shortcut` (string, e.g. `Ctrl+Shift+F`) - `patterns` (JSON, saved searches) -
 `history` (JSON, recent searches) - `debug` (bool, enables `console.debug` logging).
 
