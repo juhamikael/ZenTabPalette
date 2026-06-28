@@ -14,7 +14,7 @@ Open it via the **toolbar button**, **Ctrl+Shift+F**, or **right-clicking a tab*
 ### Search
 | Feature | Notes |
 |---------|-------|
-| Smart query (default) | `space` (or `AND`) = AND · `\|` (or `OR`) = OR · `!term` / `-term` = NOT · `"exact phrase"` · `*` `?` wildcards. `AND`/`OR` must be UPPERCASE whole words. e.g. `wow !youtube`, `heroes \| olden`, `wowhead OR juhamikael.space`, `*.juhamikael` |
+| Smart query (default) | `space` (or `AND`) = AND · `\|` (or `OR`) = OR · `!term` / `-term` = NOT · `"exact phrase"` · `*` `?` wildcards. `AND`/`OR` must be UPPERCASE whole words. e.g. `docs !archive`, `mail \| calendar`, `github OR gitlab`, `*.example.com` |
 | Regex mode | Toggle with `.*`; one case-insensitive RegExp, ReDoS-guarded (length cap + nested-quantifier block) |
 | Duplicates | Show extra tabs sharing the same URL (ignores `#hash`, trailing `/`) |
 | Search in folders | Includes folder contents and matches by folder name |

@@ -175,7 +175,7 @@
      *    nested quantifiers (e.g. `(a+)+`) which could hang the UI.
      *  - smart (default), Everything-style: space (or `AND`) = AND, `|` (or `OR`)
      *    = OR, `!`/`-` = NOT, `"phrase"` = exact, `*`/`?` = wildcards.
-     *    e.g. `wow !youtube | "olden era"` or `wowhead OR juhamikael.space`.
+     *    e.g. `docs !archive | "release notes"` or `github OR gitlab`.
      * @param {string} query
      * @param {boolean} regexMode
      * @returns {?{test:(s:string)=>boolean}|{error:string}}
