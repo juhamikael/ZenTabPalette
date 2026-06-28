@@ -136,12 +136,7 @@ simplicity.
 
 ## TODO / roadmap
 
-- [ ] **Package as a real Zen Mod.** Currently blocked: Zen Mods are CSS + preferences
-      only, so a JS mod can't be a native Zen Mod. Track whether Zen adds first-class
-      JS-mod support; until then the realistic distribution is this repo + an install
-      script (and/or auto-copying the fx-autoconfig program files).
-- [ ] Optional: a colour/theme picker in the settings view (currently themed via CSS
-      variables); folder-colour picker for new folders.
+See [`TODO.md`](TODO.md) for the planned features and known issues.
 
 ## Notes / limitations
 
