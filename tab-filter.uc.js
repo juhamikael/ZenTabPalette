@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name           Tab Filter (toolbar button + dialog)
+// @name           ZenTabPalette (Tab Filter)
 // @description    Toolbar button + Ctrl+Shift+F + right-click to open a dialog that filters tabs and moves matches into a Zen Folder / Tab Group / Workspace, closes or multi-selects them
 // @include        main
-// @author         you
+// @author         juhamikael
 // ==/UserScript==
 //
 // Styles live next to this file in tab-filter.css and are loaded via a <link>
