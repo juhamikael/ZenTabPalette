@@ -9,3 +9,6 @@ _pre-symlink-backup-*/
 
 # Personal symlink script with a hardcoded profile path (use dev/link-to-profile.ps1 instead)
 /link-to-profile.ps1
+
+# Local Zen source CSS pulled for style comparison (not part of the mod)
+dev/zen-reference/

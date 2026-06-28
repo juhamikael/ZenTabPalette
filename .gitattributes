@@ -1,0 +1,8 @@
+# Keep dev/docs out of source archives. GitHub's codeload zip (what Sine downloads
+# to install the mod) honors `export-ignore`, so these never reach the installed mod.
+README.md       export-ignore
+CLAUDE.md       export-ignore
+TODO.md         export-ignore
+.gitignore      export-ignore
+.gitattributes  export-ignore
+dev/            export-ignore
