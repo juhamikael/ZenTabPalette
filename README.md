@@ -1,7 +1,6 @@
 # Tab Filter for Zen Browser
 
-<img width="1917" height="1025" alt="90jYHA70or" src="https://github.com/user-attachments/assets/5600367c-2ce1-42b2-a985-1b4047df0c9c" />
-
+<img width="1920" height="1032" alt="wD4P5IPjnS" src="https://github.com/user-attachments/assets/be23e3e6-3a8e-48bf-9aa9-5ec418db7f85" />
 
 A keyboard-friendly search & organize dialog for [Zen Browser](https://zen-browser.app)
 tabs. Built for heavy tab users (hundreds-thousands of tabs across workspaces) - search
