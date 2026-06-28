@@ -6,7 +6,7 @@
 A keyboard-friendly search & organize dialog for [Zen Browser](https://zen-browser.app)
 tabs. Built for heavy tab users (hundreds-thousands of tabs across workspaces) - search
 with a rich query language, then bulk-move, bookmark, or close the matches. A userChrome.js
-mod (loaded via fx-autoconfig); two files, no build step.
+mod; two files, no build step. Installs via **Sine** (recommended) or **fx-autoconfig**.
 
 Open it via the **toolbar button**, **Ctrl+Shift+F**, or **right-clicking a tab**.
 
@@ -67,27 +67,40 @@ A **? Help** page (the `?` button) lists every search operator and keyboard shor
 
 ## Install
 
-Requires **fx-autoconfig** ([MrOtherGuy/fx-autoconfig](https://github.com/MrOtherGuy/fx-autoconfig)),
-which lets Zen run custom JS.
+The mod needs a loader that lets Zen run custom JS. Two options:
 
-1. **fx-autoconfig** (once). From fx-autoconfig's `program/` folder, copy **`config.js`
-   and the whole `defaults/` folder** into the Zen **binary/install directory** - the
-   folder that contains `zen.exe` (Windows: e.g. `C:\Program Files\Zen Browser\`; Linux:
-   next to the `zen` binary; macOS: `…/Zen.app/Contents/Resources/`). After this you should
-   have `…/Zen Browser/config.js` and `…/Zen Browser/defaults/pref/config-prefs.js`.
-   - This is a **system** location (needs admin - on Windows `gsudo` works) and is **not
-     part of this mod** - it's fx-autoconfig's loader. Zen updates can overwrite it, so
-     re-copy if the mod stops loading after an update.
-   - Then copy fx-autoconfig's `profile/chrome/utils/` folder into your **profile**
-     `chrome/` folder.
-2. **This mod:** copy `tab-filter.uc.js` and `tab-filter.css` into your profile
-   `chrome/JS/` folder (find the profile via `about:support` → "Open Profile Folder").
-3. Restart Zen (`about:profiles` → **Restart normally…**, or just fully quit and reopen).
-   fx-autoconfig reads scripts fresh on each start. Only if a change doesn't show up, or
-   after adding/renaming a file or changing the loader, clear the startup cache via
-   `about:support` → **Clear startup cache…**.
+### Via Sine (recommended)
+
+[Sine](https://github.com/CosmoCreeper/Sine) is a mod manager for Firefox-based browsers
+with JS-mod support.
+
+1. Install Sine (its installer sets up the bootloader for your Zen channel).
+2. In **Sine's settings → marketplace / add a mod**, add this repo:
+   `juhamikael/ZenTabPalette` (or paste the full GitHub URL). Sine reads `theme.json`,
+   then loads `tab-filter.uc.js` and `tab-filter.css` (Sine loads the CSS itself via
+   `style.chrome`; the script skips its own CSS injection when fx-autoconfig is absent).
+3. Restart Zen (`about:profiles` → **Restart normally…**).
 4. Open **Customize Toolbar** and drag the **Filter Tabs** button where you want it, or
-   just press **Ctrl+Shift+F**.
+   press **Ctrl+Shift+F**.
+
+### Via fx-autoconfig (manual / alternative)
+
+> Note: Sine has dropped fx-autoconfig support for security reasons, and its bootloader
+> replaces fx-autoconfig's. Use this path only if you are NOT using Sine.
+
+Requires **fx-autoconfig** ([MrOtherGuy/fx-autoconfig](https://github.com/MrOtherGuy/fx-autoconfig)).
+
+1. **fx-autoconfig** (once). From its `program/` folder, copy **`config.js` and the whole
+   `defaults/` folder** into the Zen **binary/install directory** (the folder with
+   `zen.exe`; macOS: `…/Zen.app/Contents/Resources/`). This is a **system** location (needs
+   admin - on Windows `gsudo` works) and a Zen update can overwrite it, so re-copy if the
+   mod stops loading. Then copy fx-autoconfig's `profile/chrome/utils/` folder into your
+   profile's `chrome/` folder.
+2. **This mod:** copy `tab-filter.uc.js` and `tab-filter.css` into your profile's
+   `chrome/JS/` folder (find the profile via `about:support` → "Open Profile Folder").
+3. Restart Zen (`about:profiles` → **Restart normally…**); only clear the startup cache
+   (`about:support`) if a change is stubborn.
+4. Add the **Filter Tabs** toolbar button (Customize Toolbar) or press **Ctrl+Shift+F**.
 
 ## Settings & prefs
 
@@ -100,7 +113,6 @@ All under `extensions.uctabfilter.*` in `about:config`:
 - `showFilterHistory`
 - `historySize`
 - `themeAccent`
-- `themePrimary`
 - `shortcut` (e.g. `Ctrl+Shift+F`)
 - `patterns` (saved searches)
 - `history` (recent searches)
@@ -108,37 +120,38 @@ All under `extensions.uctabfilter.*` in `about:config`:
 
 ## Theming
 
-Two ways to recolour the dialog:
+Buttons are intentionally neutral to match Zen's native UI; a single **accent** colour
+(turquoise by default) drives the active row, the regex-on toggle, focus rings, and badges.
+Two ways to change it:
 
-- **In-app editor** (no file editing): ⚙ → **Edit theme…**. Pick from preset swatches or a
-  colour picker for the **accent** (highlighted row) and **primary** (buttons / regex-on /
-  focus) colours, with a live preview. Saved to `extensions.uctabfilter.themeAccent` /
-  `themePrimary`; **Reset to defaults** restores them.
+- **In-app editor** (no file editing): ⚙ → **Edit theme…**. Pick the accent from preset
+  swatches or a colour picker, with a live preview. Saved to
+  `extensions.uctabfilter.themeAccent`; **Reset to defaults** restores it.
   - This is our own editor - Zen's "Edit Theme" (the gradient generator) is bound to
-    workspace backgrounds and can't be reused for an arbitrary panel, so we built an
-    equivalent that drives the same two CSS variables.
-- **CSS** (defaults): the two variables at the top of `tab-filter.css` - `--uc-tf-accent`
-  (turquoise by default) and `--uc-tf-primary` (Zen's accent by default). The in-app editor
-  overrides these at runtime.
+    workspace backgrounds and can't be reused for an arbitrary panel.
+- **CSS** (default): `--uc-tf-accent` at the top of `tab-filter.css`. The in-app editor
+  overrides it at runtime.
 
 ## Development
 
 For live development, symlink the repo's files into your Zen profile instead of copying
-them - then edits here are picked up by Zen directly:
+them - then edits here are picked up by Zen directly. The script auto-detects your loader
+(**Sine** → `chrome/sine-mods/<id>/`, **fx-autoconfig** → `chrome/JS/`):
 
 ```powershell
-# Auto-detect your default Zen profile and symlink the files in:
+# Auto-detect profile + loader and symlink the files in:
 .\dev\link-to-profile.ps1
-# …or pass your profile's chrome\JS explicitly (about:support > "Open Profile Folder"):
-.\dev\link-to-profile.ps1 -ProfileJS "C:\path\to\zen\Profiles\xxxx\chrome\JS"
+# …or pass your profile's chrome folder / force a loader explicitly:
+.\dev\link-to-profile.ps1 -ProfileChrome "C:\path\to\zen\Profiles\xxxx\chrome" -Loader sine
 # Undo (restore plain copies):
 .\dev\link-to-profile.ps1 -Unlink
 ```
 
+Under **Sine**, install the mod once via Sine first (so it's registered and its
+`chrome/sine-mods/<id>/` folder exists); the script then symlinks the repo files over it.
 Windows needs **Developer Mode ON** (Settings → System → For developers) or an elevated
-shell to create symlinks. After editing, restart Zen (`about:profiles` → "Restart
-normally…", or fully quit and reopen) to pick up the changes; only clear the startup cache
-(`about:support`) if a change is stubborn. See `CLAUDE.md` for architecture and the edit/test protocol.
+shell. Close Zen before running, then restart it (`about:profiles` → "Restart normally…")
+to pick up changes. See `CLAUDE.md` for architecture and the edit/test protocol.
 
 ### TypeScript
 

@@ -1,0 +1,15 @@
+{
+  "id": "zen-tab-palette",
+  "name": "ZenTabPalette",
+  "description": "Keyboard-friendly search & organize palette for Zen tabs: smart-query/regex search, bulk move to folders/groups/workspaces, bookmark, filter history, and settings/help/theme views.",
+  "homepage": "https://github.com/juhamikael/ZenTabPalette",
+  "readme": "https://raw.githubusercontent.com/juhamikael/ZenTabPalette/main/README.md",
+  "style": { "chrome": "tab-filter.css" },
+  "scripts": {
+    "tab-filter.uc.js": { "include": ["chrome://browser/content/browser.xhtml"] }
+  },
+  "author": "juhamikael",
+  "version": "1.0.0",
+  "tags": ["Scripts", "Zen", "Tabs", "Productivity"],
+  "fork": ["zen"]
+}

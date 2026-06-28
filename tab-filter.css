@@ -2,14 +2,13 @@
    via <link href="chrome://userscripts/content/tab-filter.css">. */
 
 /* ============================================================
-   THEME — change these variables to recolour the dialog.
-   --uc-tf-accent      : the keyboard-highlighted (active) row
-   --uc-tf-primary     : primary buttons / regex-on / focus ring
+   THEME - one accent colour drives every active / on / focus cue.
+   Buttons are intentionally neutral to match Zen's native UI.
+   --uc-tf-accent : active row, regex-on, focus ring, badges
    ============================================================ */
 .uc-tf-overlay,
 .uc-tf-ctxmenu {
-  --uc-tf-accent: #1fc8b4;                              /* turquoise: active row */
-  --uc-tf-primary: var(--zen-primary-color, #7a7afc);  /* Zen accent (violet) */
+  --uc-tf-accent: #1fc8b4; /* turquoise */
 }
 
 /* Toolbar button icon */
@@ -276,7 +275,7 @@
   transform: scale(1.12);
 }
 .uc-tf-swatch:focus-visible {
-  outline: 2px solid var(--uc-tf-primary);
+  outline: 2px solid var(--uc-tf-accent);
   outline-offset: 2px;
 }
 .uc-tf-theme-pickrow {
@@ -341,8 +340,8 @@
   font-family: monospace;
 }
 .uc-tf-rebtn.uc-tf-rebtn--on {
-  background: var(--uc-tf-primary);
-  color: white;
+  background: var(--uc-tf-accent);
+  color: #06241f; /* dark text for contrast on the turquoise accent */
   border-color: transparent;
 }
 .uc-tf-inputwrap {
@@ -513,7 +512,7 @@
   flex-shrink: 0;
   padding: 1px 6px;
   border-radius: 10px;
-  background: color-mix(in srgb, var(--uc-tf-primary) 18%, transparent);
+  background: color-mix(in srgb, var(--uc-tf-accent) 18%, transparent);
 }
 .uc-tf-empty {
   opacity: 0.6;
@@ -568,9 +567,13 @@
   border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
 }
 .uc-tf-btn.uc-tf-btn--primary {
-  background: var(--uc-tf-primary);
-  color: white;
-  border: none;
+  background: color-mix(in srgb, currentColor 16%, transparent);
+  color: inherit;
+  border: 1px solid color-mix(in srgb, currentColor 38%, transparent);
+  font-weight: 600;
+}
+.uc-tf-btn.uc-tf-btn--primary:hover {
+  background: color-mix(in srgb, currentColor 22%, transparent);
 }
 
 /* Visible keyboard focus for icon-only controls and chips (mouse focus stays subtle) */
@@ -579,7 +582,7 @@
 .uc-tf-help:focus-visible,
 .uc-tf-clearx:focus-visible,
 .uc-tf-chip:focus-visible {
-  outline: 2px solid var(--uc-tf-primary);
+  outline: 2px solid var(--uc-tf-accent);
   outline-offset: 1px;
   border-radius: 6px;
 }

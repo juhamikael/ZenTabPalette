@@ -28,9 +28,8 @@
   const GROUP_COLORS = ["blue", "red", "yellow", "green", "pink", "purple", "orange", "cyan", "gray"];
   /** Preset swatches for the theme editor (echoes Zen's color-dot palette). */
   const THEME_SWATCHES = ["#1fc8b4", "#7a7afc", "#67d4a0", "#7aa2f7", "#f7d774", "#f08a5d", "#e0607e", "#b48ef0", "#e8e6d9", "#9aa0a6"];
-  /** Theme defaults (mirror the values in tab-filter.css). */
-  const THEME_DEFAULT_ACCENT = "#1fc8b4";   // turquoise active row
-  const THEME_DEFAULT_PRIMARY = "";          // "" = inherit Zen's --zen-primary-color
+  /** Theme default (mirrors --uc-tf-accent in tab-filter.css). */
+  const THEME_DEFAULT_ACCENT = "#1fc8b4";   // turquoise accent
   /** CustomizableUI widget id (also the CSS selector for the toolbar icon). */
   const WIDGET_ID = "uc-tab-filter-button";
   /** Pref holding the JSON array of saved search patterns. */
@@ -651,10 +650,8 @@
     static get showFilterHistory() { return this.#bool("showFilterHistory", true); }
     /** How many history entries appear in the dropdown (1–50). */
     static get historySize() { return Math.min(50, Math.max(1, this.#int("historySize", 10))); }
-    /** Accent colour (active row) as a hex string. */
+    /** Accent colour (active row, toggles, focus) as a hex string. */
     static get themeAccent() { return this.#str("themeAccent", THEME_DEFAULT_ACCENT); }
-    /** Primary colour (buttons/regex/focus) as a hex string; "" = inherit Zen's accent. */
-    static get themePrimary() { try { return Services.prefs.getStringPref("extensions.uctabfilter.themePrimary", THEME_DEFAULT_PRIMARY); } catch (e) { debug(e); return THEME_DEFAULT_PRIMARY; } }
     /** The open-dialog shortcut, e.g. "Ctrl+Shift+F". */
     static get shortcut() { return this.#str("shortcut", "Ctrl+Shift+F"); }
   }
@@ -1080,10 +1077,10 @@
       return createEl("div", { class: "uc-tf-panel uc-tf-theme-panel", hidden: true, ref: ref("themePanel") }, [
         createEl("div", { class: "uc-tf-settings-title" }, "Edit theme"),
         createEl("div", { class: "uc-tf-theme-scroll" }, [
-          this.#themeColorGroup(ref, "Active row (accent)", "themeAccent", "accentInput", "accentHex"),
-          this.#themeColorGroup(ref, "Buttons & focus (primary)", "themePrimary", "primaryInput", "primaryHex"),
+          this.#themeColorGroup(ref, "Accent colour (active row, toggles, focus)", "themeAccent", "accentInput", "accentHex"),
 
-          // Live preview — these reuse the same CSS variables, so they recolour instantly.
+          // Live preview - the accent drives these, so they recolour instantly. Buttons are
+          // intentionally neutral (native Zen look), shown here for reference.
           createEl("div", { class: "uc-tf-theme-prevwrap" }, [
             createEl("div", { class: "uc-tf-theme-prevlabel" }, "Preview"),
             createEl("div", { class: "uc-tf-row uc-tf-row--active uc-tf-theme-prevrow" }, [
@@ -1091,14 +1088,13 @@
             ]),
             createEl("div", { class: "uc-tf-theme-prevbtns" }, [
               createEl("button", { class: "uc-tf-rebtn uc-tf-rebtn--on uc-tf-field" }, ".*"),
-              createEl("button", { class: "uc-tf-btn uc-tf-btn--primary" }, "Primary button"),
+              createEl("button", { class: "uc-tf-btn uc-tf-btn--primary" }, "Button"),
             ]),
           ]),
         ]),
         createEl("div", { class: "uc-tf-btns" }, [
           this.#button("Reset to defaults", false, () => {
             Settings.setStr("themeAccent", THEME_DEFAULT_ACCENT);
-            Settings.setStr("themePrimary", THEME_DEFAULT_PRIMARY);
             this.#applyTheme();
             this.#syncThemeControls();
           }),
@@ -1140,22 +1136,15 @@
     #syncThemeControls() {
       const ui = this.#ui;
       const accent = Settings.themeAccent || THEME_DEFAULT_ACCENT;
-      const primary = Settings.themePrimary;
       if (ui.accentInput) ui.accentInput.value = accent;
       if (ui.accentHex) ui.accentHex.textContent = accent;
-      if (ui.primaryInput) ui.primaryInput.value = primary || "#7a7afc";
-      if (ui.primaryHex) ui.primaryHex.textContent = primary || "(Zen default)";
     }
 
-    /** Apply the persisted theme to the overlay's CSS variables (live for this dialog). */
+    /** Apply the persisted theme to the overlay's CSS variable (live for this dialog). */
     #applyTheme() {
       const overlay = this.#ui.overlay;
       if (!overlay) return;
-      const accent = Settings.themeAccent || THEME_DEFAULT_ACCENT;
-      overlay.style.setProperty("--uc-tf-accent", accent);
-      const primary = Settings.themePrimary;
-      if (primary) overlay.style.setProperty("--uc-tf-primary", primary);
-      else overlay.style.removeProperty("--uc-tf-primary"); // fall back to the CSS default (Zen accent)
+      overlay.style.setProperty("--uc-tf-accent", Settings.themeAccent || THEME_DEFAULT_ACCENT);
     }
 
     /** Begin capturing a key combo for the shortcut field. */
@@ -1825,12 +1814,21 @@
     return parsed;
   }
 
-  /** Link the sibling stylesheet into this window once. */
+  /**
+   * Link the sibling stylesheet into this window once - ONLY under fx-autoconfig.
+   * fx-autoconfig exposes UC_API/_ucUtils and registers chrome://userscripts/, so the
+   * <link> resolves. Under Sine there is no fx-autoconfig (and no such chrome path);
+   * Sine loads tab-filter.css itself from the mod's theme.json "style.chrome", so we
+   * skip injecting to avoid a dead/invalid stylesheet link.
+   */
   function injectStylesheet() {
     if (document.getElementById("uc-tf-style-link")) return;
-    document.documentElement.appendChild(
-      createEl("link", { id: "uc-tf-style-link", rel: "stylesheet", href: STYLESHEET_URL })
-    );
+    if (!(window.UC_API || window._ucUtils)) return; // not fx-autoconfig (e.g. Sine) -> loader handles CSS
+    try {
+      document.documentElement.appendChild(
+        createEl("link", { id: "uc-tf-style-link", rel: "stylesheet", href: STYLESHEET_URL })
+      );
+    } catch (e) { debug(e); }
   }
 
   /**

@@ -11,10 +11,13 @@ Checklist of planned features and known issues. Pick the next thing from here.
 - [ ] **Clear the search query after an operation** (move/close).
 - [ ] **Auto-close the dialog when a new tab opens** - e.g. a link directed in from another
       app such as Discord.
-- [ ] Colour/theme picker beyond the current swatches; a folder-colour picker for new folders.
-- [ ] **Package as a real Zen Mod** - blocked: Zen Mods are CSS + preferences only, so a JS
-      mod can't be a native Zen Mod. Track whether Zen adds first-class JS-mod support; until
-      then the realistic distribution is this repo + an install script.
+- [ ] A folder-colour picker for new folders.
+- [ ] **Distribute via Sine** (the mod manager). Native Zen Mods are CSS + preferences only,
+      so Sine is the realistic path for a JS mod. Done: `theme.json` (scripts + `style.chrome`),
+      the script skips its own CSS injection when fx-autoconfig is absent (Sine loads CSS),
+      and `dev/link-to-profile.ps1` supports both loaders. Remaining: install/test via Sine
+      end-to-end, optionally add `preferences.json`, then open the Sine marketplace submission
+      issue to publish.
 
 ## Fixes / bugs
 
@@ -23,4 +26,6 @@ Checklist of planned features and known issues. Pick the next thing from here.
 
 ## Done
 
-(Move completed items here as they ship, or just delete them.)
+- [x] **Native button styling** - dropped the purple accent fill on primary buttons; one
+      turquoise accent now drives only active-row / regex-on / focus / badges, buttons are
+      neutral to match Zen's UI. (Feedback from Zen's dev: "why are the buttons purple".)

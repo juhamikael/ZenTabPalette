@@ -24,16 +24,23 @@ filenames and the `uctabfilter` / `uc-tf-` prefixes were kept to avoid a churny 
   the user has explicitly rejected it. Write plain commit messages.
 - **Verify Zen/Firefox APIs from source, never guess** (see Conventions).
 - **Docs use plain hyphens, not em dashes.**
-- This is loaded by **fx-autoconfig**, so it does NOT run in Zen's **Troubleshoot / Safe
-  Mode** (`[ZenMods]: Mods disabled by user or in safe mode`) - have the user test in a
-  normal window.
+- **Two loaders are supported** (see `theme.json`): **Sine** (the mod manager - its bootloader
+  loads our `.uc.js` via `loadSubScript` with the browser window as target, and loads the CSS
+  itself from `theme.json` `style.chrome`) and **fx-autoconfig** (manual - the script injects
+  its own CSS from `chrome://userscripts/...`). `injectStylesheet` only runs under
+  fx-autoconfig (gated on `window.UC_API`/`_ucUtils`) so it doesn't fight Sine. Sine has
+  dropped fx-autoconfig support, and its bootloader replaces fx-autoconfig's `config.js`, so a
+  given profile uses one or the other.
+- It does NOT run in Zen's **Troubleshoot / Safe Mode** - have the user test in a normal window.
 
-## Files (both live here, next to each other)
+## Files
 
 | File | Purpose |
 |------|---------|
-| `tab-filter.uc.js` | All logic. Loaded automatically by fx-autoconfig (it ends in `.uc.js`). |
-| `tab-filter.css` | All styling (class-based). Loaded by the JS via `<link href="chrome://userscripts/content/tab-filter.css">` - the `chrome/JS` dir is mapped to that scheme by fx-autoconfig's `../utils/chrome.manifest`. |
+| `tab-filter.uc.js` | All logic. An IIFE `.uc.js`; loaded by fx-autoconfig OR Sine. |
+| `tab-filter.css` | All styling (class-based). Under fx-autoconfig the JS injects it via `chrome://userscripts/content/tab-filter.css`; under Sine it is loaded from `theme.json` `style.chrome`. |
+| `theme.json` | Sine manifest (`scripts` + `style.chrome` + metadata) so the mod installs via Sine. |
+| `dev/link-to-profile.ps1` | Symlinks the files into the profile for live dev; auto-detects Sine vs fx-autoconfig. |
 
 There is **no build step**. Edit the files directly; `dev/link-to-profile.ps1` symlinks them
 into the profile for live development.
@@ -57,15 +64,15 @@ Single IIFE wrapping ES classes + a few bootstrap functions:
   PatternStore's manual stars.
 - **`Settings`** (static) - typed getters over prefs `extensions.uctabfilter.*`:
   `searchAllWorkspaces`, `emptyShowsAll`, `defaultSearchInFolders`, `keepOpenAfterAction`,
-  `showFilterHistory`, `historySize`, `themeAccent`, `themePrimary`, `shortcut`.
+  `showFilterHistory`, `historySize`, `themeAccent`, `shortcut`.
 - **`FilterDialog`** - one instance per open (`new FilterDialog().open(initialQuery)`).
   Builds its DOM with `createEl` (refs captured into `#ui`), holds transient state in
   private `#` fields. The results list is **virtualized** (`#filtered` = full data, only a
   window of rows is mounted; geometry constants `ROW_STEP`/`ROW_BUFFER`). Selection is a
   persistent `#selected` Set (survives changing the search within one open). The title bar
   has **? help**, **gear settings**, and **close**; `#showView(view)` swaps the body between
-  five panels: `tabs`, `settings`, `help`, `history`, `theme`. Theme is applied to the
-  overlay's CSS variables (`--uc-tf-accent`, `--uc-tf-primary`) in `#applyTheme`.
+  five panels: `tabs`, `settings`, `help`, `history`, `theme`. The single accent colour
+  `--uc-tf-accent` is applied to the overlay in `#applyTheme` (buttons stay neutral).
 - **bootstrap** - `registerToolbarButton` (CustomizableUI, app-wide), `initWindow`
   (per window: inject stylesheet, bind the global shortcut, add the context submenu), run on
   `browser-delayed-startup-finished`.
@@ -116,7 +123,7 @@ The list re-render is explicit (`#rebuildList` / `#renderWindow`) - this is plai
 
 `searchAllWorkspaces` (bool) - `emptyShowsAll` (bool) - `defaultSearchInFolders` (bool) -
 `keepOpenAfterAction` (bool) - `showFilterHistory` (bool) - `historySize` (int) -
-`themeAccent` (string hex) - `themePrimary` (string hex, "" = inherit Zen accent) -
+`themeAccent` (string hex) -
 `shortcut` (string, e.g. `Ctrl+Shift+F`) - `patterns` (JSON, saved searches) -
 `history` (JSON, recent searches) - `debug` (bool, enables `console.debug` logging).
 
